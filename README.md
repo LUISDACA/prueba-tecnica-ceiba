@@ -1,227 +1,209 @@
-# API REST — Alquiler de Bicicletas Urbanas
+# API de Alquiler de Bicicletas Urbanas
 
-Esta es mi solución a la prueba técnica para el rol de Practicante Java. Es una
-API REST en Spring Boot que permite registrar bicicletas, controlar su
-disponibilidad y calcular automáticamente el costo de cada alquiler junto con
-la multa por devolución tardía.
-
-Intenté que el README sea suficiente para correr el proyecto, entender por qué
-está organizado como está y revisar cualquier decisión que tomé.
+Esta es mi solución a la prueba técnica para el rol de Practicante Java. Es
+una API REST en Spring Boot que registra bicicletas, controla disponibilidad
+y calcula cuánto cobrar por cada alquiler (incluyendo multa si el cliente
+devuelve tarde).
 
 ---
 
-## Demo en vivo
+## Probarla sin instalar nada
 
-La app está corriendo en Azure Container Apps. Se puede probar directamente
-sin clonar el repositorio:
+La app está desplegada en Azure, así que se puede probar directamente:
 
 | | |
 |---|---|
-| **URL base** | https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io |
+| **URL** | https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io |
 | **Swagger UI** | [/swagger-ui/index.html](https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io/swagger-ui/index.html) |
-| **API Key** (para evaluación) | `jSVF2NqpgpKwrfAE5IDOmdKz3lJX` |
+| **API Key** | `jSVF2NqpgpKwrfAE5IDOmdKz3lJX` (se envía en el header `X-API-KEY`) |
 
-Los endpoints `/api/**` requieren enviar el header `X-API-KEY` con esa clave.
-Los endpoints de Swagger UI y la spec OpenAPI son públicos para facilitar la
-revisión. Más ejemplos en la sección [Probar la API en producción](#probar-la-api-en-producción).
+Si entras a la URL base te redirige a Swagger UI. Ahí mismo hay un botón
+"Authorize" donde pegas la API Key una vez y todo queda listo para probar.
 
-> La app escala a cero cuando no hay tráfico, así que la primera petición tras
-> un rato sin uso puede tardar ~5-10 segundos en responder mientras el
-> contenedor se levanta.
-
----
-
-## Tabla de contenido
-
-1. [Qué hace](#qué-hace)
-2. [Cómo lo organicé](#cómo-lo-organicé)
-3. [Decisiones que tomé y por qué](#decisiones-que-tomé-y-por-qué)
-4. [Stack](#stack)
-5. [Cómo correr el proyecto](#cómo-correr-el-proyecto)
-6. [Configuración](#configuración)
-7. [Probar la API en producción](#probar-la-api-en-producción)
-8. [Endpoints con ejemplos](#endpoints-con-ejemplos)
-9. [Reglas de negocio](#reglas-de-negocio)
-10. [Manejo de errores](#manejo-de-errores)
-11. [Pruebas](#pruebas)
-12. [Supuestos que tomé](#supuestos-que-tomé)
-13. [Despliegue en Azure](#despliegue-en-azure)
-14. [Estructura del proyecto](#estructura-del-proyecto)
+> La app está configurada para escalar a cero cuando nadie la usa (para no
+> consumir el free tier). La primera petición puede tardar 5-10 segundos
+> mientras el contenedor arranca; las siguientes ya van rápido.
 
 ---
 
 ## Qué hace
 
-La API permite:
+- Registra bicicletas con código único, tipo y estado.
+- Inicia alquileres de bicicletas disponibles.
+- Finaliza alquileres y calcula el costo (más la multa si hubo retraso).
+- Lista bicicletas disponibles, con filtro opcional por tipo.
+- Muestra el historial de alquileres de una bicicleta.
 
-- Registrar bicicletas con su código único, tipo y estado.
-- Iniciar alquileres de bicicletas disponibles.
-- Finalizar alquileres calculando el costo base y, si aplica, la multa por
-  devolución tardía.
-- Consultar la disponibilidad de bicicletas (con filtro opcional por tipo).
-- Ver el historial de alquileres de cada bicicleta.
-
-Cubrí todos los requerimientos funcionales (RF-01 a RF-05) y las cinco reglas
+Cubrí los cinco requerimientos funcionales (RF-01 a RF-05) y las cinco reglas
 de negocio (RN-01 a RN-05) del enunciado.
 
 ---
 
-## Cómo lo organicé
+## Cómo está organizado
 
-Opté por una arquitectura por capas, que es la que mejor conozco para Spring
-Boot y la que separa más claramente las responsabilidades:
+Lo armé en capas, que es como aprendí Spring Boot:
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  web (controllers, DTOs, mappers, ExceptionHandler global)   │  ← HTTP
-├──────────────────────────────────────────────────────────────┤
-│  service (BicicletaService, AlquilerService, TarifaCalc.)    │  ← Negocio
-├──────────────────────────────────────────────────────────────┤
-│  repository (Spring Data JPA)                                │  ← Persistencia
-├──────────────────────────────────────────────────────────────┤
-│  domain (entidades, enums, RedondeoHoras)                    │  ← Modelo
-└──────────────────────────────────────────────────────────────┘
+web         (controllers, DTOs, mappers, handler de errores)
+service     (lógica del negocio: cálculo de tarifa, servicios)
+repository  (Spring Data JPA)
+domain      (entidades, enums, utilitarios de cálculo)
 ```
 
-La idea es que cada capa solo conozca a la que tiene justo debajo. Los
-controllers no saben de JPA; los repositorios no saben de HTTP; el dominio no
-sabe de Spring. Esto me ayudó a poder testear el `TarifaCalculator` (lo más
-sensible del proyecto) sin levantar el contexto de Spring.
+La idea fue que cada capa solo conozca a la de abajo. Por ejemplo, el
+controller no sabe de JPA, y el dominio no sabe de Spring. Esto me ayudó
+sobre todo para los tests: el `TarifaCalculator` (donde está toda la lógica
+del costo y la multa) no depende de nada, así que pude testearlo con muchos
+casos sin tener que levantar la app.
 
 ---
 
-## Decisiones que tomé y por qué
+## Algunas cosas que decidí
 
-| Lo que hice | Por qué |
-|---|---|
-| Saqué la lógica del cálculo del costo y la multa a una clase aparte (`TarifaCalculator`), sin estado y sin dependencias de Spring. | Es la parte más sensible del sistema (toda la lógica monetaria). Al ser una clase pura, pude testearla con un montón de casos en milisegundos. Cumple SRP. |
-| Inyecté un `Clock` en `AlquilerService` en vez de usar `LocalDateTime.now()` directo. | Los tests necesitan ser deterministas. Con un `Clock.fixed(...)` puedo congelar el tiempo y verificar costos exactos. Es Inversión de Dependencias en acción. |
-| Puse las tarifas adentro del enum `TipoBicicleta`. | El tipo "sabe" su tarifa, en lugar de tener un `Map<TipoBicicleta, BigDecimal>` por ahí. Si en algún momento las tarifas se vuelven dinámicas, las muevo a una tabla — pero el enunciado las da fijas, así que esto era lo más simple y cohesivo. |
-| Usé `record` de Java para los DTOs en vez de clases con Lombok. | Son inmutables sin esfuerzo, no necesitan getters/setters, y Bean Validation funciona perfecto con ellos. Cero dependencias adicionales. |
-| Separé los DTOs de las entidades JPA. | Para no exponer detalles internos (como el `id` numérico o el campo `version` de optimistic locking) y para poder versionar la API sin tocar el modelo. |
-| Las excepciones describen el negocio (`BicicletaNoDisponibleException`), no HTTP. Un único `@RestControllerAdvice` las mapea a `ProblemDetail` (RFC 7807). | Así no tengo que repetir try/catch en cada controller (DRY) y los servicios no necesitan saber de códigos HTTP. |
-| Agregué `@Version` a `Bicicleta` para bloqueo optimista. | Si dos peticiones intentan alquilar la misma bici al mismo tiempo, JPA detecta el conflicto. El que llega segundo recibe un 409, no una bici "doblemente alquilada". |
-| Usé `@EntityGraph` en consultas que retornan listas de alquileres. | Para evitar el error clásico de *lazy loading* fuera de transacción cuando el mapper accede a `alquiler.getBicicleta()`. |
-| `BigDecimal` para todo lo monetario. | Con `double` cosas como `0.1 + 0.2 != 0.3` rompen los cálculos. Para dinero el estándar es `BigDecimal` con `RoundingMode` explícito. |
-| API Key en header (`X-API-KEY`) sobre Spring Security. | El enunciado pide "seguridad básica". JWT/OAuth me parecía sobreingeniería para esto. Un filtro `OncePerRequestFilter` que valida la clave es simple y suficiente. |
-| No usé Lombok en las entidades JPA. | `@Data` genera `equals`/`hashCode` con todos los campos, y eso rompe el contrato cuando el id se asigna después de persistir. Las entidades las hice "a mano" definiendo igualdad por la PK. |
-| Usé `PATCH` para finalizar el alquiler, no `POST`. | Finalizar es una actualización parcial del recurso, no la creación de uno nuevo. Quería evitar el anti-patrón RPC-sobre-REST (`POST /alquileres/{id}/finalizar`). |
-| Versioné la API con `/api/v1/...`. | Para que si más adelante hay que cambiar algo en el contrato, pueda existir un `/api/v2/...` sin romper a los clientes viejos. |
-| Desactivé `spring.jpa.open-in-view`. | Es un anti-patrón. Las transacciones se cierran al salir del servicio, no se extienden al controller. |
+Las pongo aquí porque seguramente se preguntan en la entrevista:
+
+**Saqué el cálculo del costo y la multa a una clase aparte (`TarifaCalculator`).**
+Es la parte más importante del proyecto (toca la plata del cliente), así que
+quise tenerla aislada y bien probada. No depende de Spring ni de la base de
+datos: recibe datos, devuelve datos. Eso hizo los tests rapidísimos.
+
+**Inyecté un `Clock` en lugar de usar `LocalDateTime.now()` directo.**
+Si usaba `now()` los tests dependían del reloj real y nunca iban a ser
+deterministas. Con un `Clock` puedo congelar el tiempo en los tests y
+verificar que los cálculos dan exactamente lo que deben.
+
+**Las tarifas las puse dentro del enum `TipoBicicleta`.**
+Cada tipo "sabe" su tarifa, en lugar de tener un mapa o una tabla. El
+enunciado las da fijas, así que esto me pareció lo más directo. Si más
+adelante cambian dinámicamente, las paso a una tabla.
+
+**Para los DTOs usé `record` de Java en vez de clases con Lombok.**
+Los records vienen en el lenguaje, son inmutables y se escriben en una
+línea. Para los datos que entran y salen por la API, no necesitaba nada
+más.
+
+**Separé los DTOs de las entidades JPA.**
+No quería exponer el `id` interno ni el campo `version` (que uso para
+controlar concurrencia) en el JSON de respuesta. También así puedo cambiar
+el modelo sin romper el contrato de la API.
+
+**Las excepciones describen el negocio, no HTTP.**
+Por ejemplo `BicicletaNoDisponibleException` no sabe nada de códigos HTTP.
+Hay una clase aparte (`GlobalExceptionHandler`) que las traduce a la
+respuesta HTTP correspondiente. Así no tengo `try/catch` repartidos en cada
+controller.
+
+**`@Version` en la entidad `Bicicleta` para concurrencia.**
+Pensé en el caso de que dos personas intenten alquilar la misma bici al
+mismo tiempo. Con `@Version`, JPA detecta el conflicto y solo una gana; la
+otra recibe un 409.
+
+**Usé `BigDecimal` para todo lo monetario.**
+Con `double` aparecen errores raros del tipo `0.1 + 0.2 = 0.30000000004`,
+y eso no se puede permitir cuando hablamos de plata.
+
+**Seguridad básica con un API Key en el header.**
+El enunciado pide "seguridad básica", y para una API interna esto me pareció
+suficiente. JWT u OAuth ya se sentía como demasiado para esta prueba. El
+filtro de Spring Security valida el header `X-API-KEY`.
+
+**Usé `PATCH` para finalizar el alquiler, no `POST`.**
+Como finalizar es modificar un alquiler existente (no crear uno nuevo),
+`PATCH` me pareció más correcto que `POST /alquileres/{id}/finalizar`.
+
+**Versioné la API en la URL (`/api/v1/...`).**
+Por si en algún momento toca cambiar el contrato sin romper clientes
+viejos.
 
 ---
 
 ## Stack
 
-| Componente | Versión | Para qué |
-|---|---|---|
-| Java | 21 LTS | Lenguaje (uso records y otras features modernas) |
-| Spring Boot | 3.5.14 | Framework |
-| Maven | wrapper incluido | Build |
-| Spring Web | (con Spring Boot) | REST controllers |
-| Spring Data JPA + Hibernate | (con Spring Boot) | Persistencia |
-| H2 Database | (con Spring Boot) | BD en memoria, sin instalar nada |
-| Spring Security | (con Spring Boot) | Filtro de API Key |
-| Bean Validation | (con Spring Boot) | Validación de DTOs |
-| SpringDoc OpenAPI | 2.8.0 | Swagger UI (la agregué a mano al pom) |
-| Lombok | (con Spring Boot) | Reducir boilerplate, con moderación |
-| Spring Boot DevTools | (con Spring Boot) | Hot reload mientras desarrollaba |
-| JUnit 5 + Mockito + AssertJ | (con Spring Boot Test) | Tests |
+- **Java 21** (LTS).
+- **Spring Boot 3.5.14**.
+- **Maven** (incluí el wrapper, así que no toca instalarlo).
+- **H2** como base de datos en memoria — para que el revisor no tenga que
+  instalar nada externo.
+- **Spring Security** para el filtro de API Key.
+- **Bean Validation** para validar los datos de entrada.
+- **SpringDoc OpenAPI** para Swagger UI (lo agregué a mano al pom).
+- **Lombok** para no escribir tantos getters/setters, pero no en las
+  entidades JPA (ahí lo evité porque genera `equals`/`hashCode` que rompen
+  el contrato cuando el id se asigna después).
+- **JUnit 5 + Mockito + AssertJ** para los tests.
 
-Elegí Maven sobre Gradle porque me pareció más legible para alguien que no
-conoce el proyecto. Elegí H2 sobre Postgres para que no haya que instalar nada
-externo — la idea es que el revisor pueda correrlo con un solo comando.
+Elegí Maven sobre Gradle porque el `pom.xml` me parecía más fácil de leer
+para alguien revisando por primera vez. Y H2 sobre Postgres para que el
+revisor pueda correr todo con un solo comando.
 
 ---
 
-## Cómo correr el proyecto
+## Cómo correrlo en local
 
-### Requisitos
-
-- **JDK 21** instalado (probado con OpenJDK 21.0.10).
-- **No necesitas instalar Maven** — el proyecto incluye el wrapper (`mvnw` /
-  `mvnw.cmd`).
-- **No necesitas base de datos externa** — H2 corre en memoria.
-
-### Pasos
+Lo único que se necesita es **JDK 21**. Maven ya viene incluido con el
+wrapper.
 
 ```bash
-# 1. Clonar el repositorio
-git clone <URL-del-repo>
-cd prueba-tecnica-java
+git clone https://github.com/LUISDACA/prueba-tecnica-ceiba.git
+cd prueba-tecnica-ceiba
 
-# 2. Compilar y correr los tests
+# Tests
 ./mvnw test                  # Linux/Mac
 mvnw.cmd test                # Windows
 
-# 3. Arrancar la app
+# Arrancar la app
 ./mvnw spring-boot:run       # Linux/Mac
 mvnw.cmd spring-boot:run     # Windows
 ```
 
-La aplicación arranca en **http://localhost:8080** en unos 4 segundos.
+Se levanta en http://localhost:8080 en unos 4 segundos.
 
-### Recursos útiles una vez arrancada
+Una vez arriba:
 
-| Recurso | URL |
-|---|---|
-| Swagger UI | http://localhost:8080/swagger-ui/index.html |
-| OpenAPI JSON | http://localhost:8080/v3/api-docs |
-| Consola H2 | http://localhost:8080/h2-console (JDBC URL: `jdbc:h2:mem:alquileresdb`, user: `sa`, sin password) |
-
-La forma más cómoda de probar la API es desde Swagger UI: hay un botón
-*Authorize* donde se pega la API Key una sola vez y todos los endpoints
-quedan listos para probar.
+- **Swagger UI**: http://localhost:8080/swagger-ui/index.html
+- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+- **Consola H2**: http://localhost:8080/h2-console
+  (JDBC URL: `jdbc:h2:mem:alquileresdb`, usuario `sa`, sin contraseña)
 
 ---
 
 ## Configuración
 
-Toda la configuración está en `src/main/resources/application.properties`. Las
-propiedades importantes se pueden sobreescribir con variables de entorno:
+Está en `src/main/resources/application.properties`. Las cosas importantes
+se pueden cambiar por variable de entorno:
 
-| Propiedad | Default | Variable de entorno |
+| Propiedad | Default | Variable |
 |---|---|---|
 | `app.security.api-key` | `dev-api-key-cambiar-en-produccion` | `API_KEY` |
-| `app.security.api-key-header` | `X-API-KEY` | — |
-| `server.port` | 8080 | — |
+| `server.port` | 8080 | `PORT` |
 
-En producción la idea es que la API Key venga de fuera (variable de entorno o
-secret manager), no del archivo de propiedades. Para esta prueba la dejé con
-un default para que el revisor pueda correr todo sin configurar nada.
-
-```bash
-API_KEY=clave-secreta-real ./mvnw spring-boot:run
-```
+En producción la API key viene de la variable de entorno. La default solo
+sirve para que el revisor pueda correr en local sin configurar nada.
 
 ---
 
 ## Probar la API en producción
 
-Para evaluar el comportamiento real sin correr nada localmente, estos curl van
-directo contra la app desplegada en Azure (recordar que la primera petición
-tras inactividad puede tardar ~10s mientras el contenedor se levanta).
-
-Variables que uso en los ejemplos:
+Estos curl van directo contra la app desplegada en Azure.
 
 ```bash
 URL="https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io"
 KEY="jSVF2NqpgpKwrfAE5IDOmdKz3lJX"
 ```
 
-### Listar las 5 bicicletas del seed
+**Listar las 5 bicicletas del seed**
 
 ```bash
 curl -H "X-API-KEY: $KEY" $URL/api/v1/bicicletas
 ```
 
-### Disponibles filtradas por tipo
+**Solo las URBANA disponibles**
 
 ```bash
 curl -H "X-API-KEY: $KEY" "$URL/api/v1/bicicletas/disponibles?tipo=URBANA"
 ```
 
-### Iniciar un alquiler
+**Iniciar un alquiler**
 
 ```bash
 curl -X POST -H "X-API-KEY: $KEY" -H "Content-Type: application/json" \
@@ -229,36 +211,33 @@ curl -X POST -H "X-API-KEY: $KEY" -H "Content-Type: application/json" \
      $URL/api/v1/alquileres
 ```
 
-### Finalizar ese alquiler (calcular costo + multa)
+**Finalizarlo (reemplazar `{id}` por el id que devolvió el paso anterior)**
 
 ```bash
-# Reemplaza {id} por el id devuelto en el paso anterior
 curl -X PATCH -H "X-API-KEY: $KEY" $URL/api/v1/alquileres/{id}/finalizar
 ```
 
-### Ver el historial de una bicicleta
+**Ver el historial de una bicicleta**
 
 ```bash
 curl -H "X-API-KEY: $KEY" $URL/api/v1/bicicletas/BIC-002/historial
 ```
 
-### Comprobar que la seguridad funciona
+**Sin la API key tiene que dar 401**
 
 ```bash
-# Sin header -> 401 Unauthorized
 curl -i $URL/api/v1/bicicletas
 ```
 
 ---
 
-## Endpoints con ejemplos
+## Endpoints
 
-Todas las rutas `/api/**` requieren el header `X-API-KEY`. Los ejemplos usan
-la API Key por defecto.
+Todos los `/api/**` necesitan el header `X-API-KEY`.
 
 ### Bicicletas
 
-#### Crear bicicleta — `POST /api/v1/bicicletas`
+#### `POST /api/v1/bicicletas` — crear
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/bicicletas \
@@ -267,7 +246,7 @@ curl -X POST http://localhost:8080/api/v1/bicicletas \
   -d '{"codigo":"BIC-100","tipo":"ELÉCTRICA"}'
 ```
 
-Respuesta `201 Created`:
+Respuesta `201`:
 
 ```json
 {
@@ -278,42 +257,17 @@ Respuesta `201 Created`:
 }
 ```
 
-#### Listar todas — `GET /api/v1/bicicletas`
+#### `GET /api/v1/bicicletas` — listar todas
 
-```bash
-curl http://localhost:8080/api/v1/bicicletas \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
+#### `GET /api/v1/bicicletas/disponibles?tipo=URBANA` — disponibles, opcionalmente filtradas
 
-#### Listar disponibles — `GET /api/v1/bicicletas/disponibles`
+#### `GET /api/v1/bicicletas/{codigo}` — una sola
 
-```bash
-# Todas las disponibles
-curl "http://localhost:8080/api/v1/bicicletas/disponibles" \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-
-# Filtrar por tipo
-curl "http://localhost:8080/api/v1/bicicletas/disponibles?tipo=URBANA" \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
-
-#### Buscar por código — `GET /api/v1/bicicletas/{codigo}`
-
-```bash
-curl http://localhost:8080/api/v1/bicicletas/BIC-001 \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
-
-#### Historial de alquileres — `GET /api/v1/bicicletas/{codigo}/historial`
-
-```bash
-curl http://localhost:8080/api/v1/bicicletas/BIC-001/historial \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
+#### `GET /api/v1/bicicletas/{codigo}/historial` — historial de alquileres
 
 ### Alquileres
 
-#### Iniciar alquiler — `POST /api/v1/alquileres`
+#### `POST /api/v1/alquileres` — iniciar
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/alquileres \
@@ -326,44 +280,15 @@ curl -X POST http://localhost:8080/api/v1/alquileres \
   }'
 ```
 
-Respuesta `201 Created`:
+#### `PATCH /api/v1/alquileres/{id}/finalizar` — finalizar y calcular costo
+
+Reproduciendo el ejemplo del enunciado (MONTAÑA, 2h estimadas, 3h 20min reales):
 
 ```json
 {
   "id": 1,
   "codigoBicicleta": "BIC-002",
   "tipoBicicleta": "MONTAÑA",
-  "nombreCliente": "Juan Pérez",
-  "horaInicio": "2026-05-22T22:50:29.16",
-  "horaFin": null,
-  "duracionEstimadaHoras": 2,
-  "duracionRealHoras": null,
-  "costoBase": null,
-  "multa": null,
-  "costoTotal": null,
-  "tuvoMulta": false,
-  "finalizado": false
-}
-```
-
-#### Finalizar alquiler — `PATCH /api/v1/alquileres/{id}/finalizar`
-
-```bash
-curl -X PATCH http://localhost:8080/api/v1/alquileres/1/finalizar \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
-
-Respuesta `200 OK` reproduciendo el ejemplo del enunciado (MONTAÑA, 2h
-estimadas, 3h 20min reales):
-
-```json
-{
-  "id": 1,
-  "codigoBicicleta": "BIC-002",
-  "tipoBicicleta": "MONTAÑA",
-  "nombreCliente": "Juan Pérez",
-  "horaInicio": "...",
-  "horaFin": "...",
   "duracionEstimadaHoras": 2,
   "duracionRealHoras": 4,
   "costoBase": 20000.00,
@@ -374,17 +299,9 @@ estimadas, 3h 20min reales):
 }
 ```
 
-#### Detalle de alquiler — `GET /api/v1/alquileres/{id}`
+#### `GET /api/v1/alquileres/{id}` — detalle
 
-```bash
-curl http://localhost:8080/api/v1/alquileres/1 \
-  -H "X-API-KEY: dev-api-key-cambiar-en-produccion"
-```
-
-### Datos que se cargan al arrancar (seed)
-
-Al iniciar la app un `CommandLineRunner` carga las cinco bicicletas del
-enunciado:
+### Datos cargados al arrancar (seed)
 
 | Código | Tipo | Estado inicial |
 |---|---|---|
@@ -398,9 +315,7 @@ enunciado:
 
 ## Reglas de negocio
 
-### RN-01 — Tarifas por tipo
-
-Las definí dentro del enum `TipoBicicleta`:
+**RN-01 — Tarifas por tipo**
 
 | Tipo | Tarifa/hora |
 |---|---|
@@ -408,46 +323,41 @@ Las definí dentro del enum `TipoBicicleta`:
 | MONTAÑA | $5.000 |
 | ELÉCTRICA | $7.500 |
 
-### RN-02 — Cálculo del costo base
+**RN-02 — Costo base**
 
-`costoBase = horasRealesRedondeadasAlAlza × tarifaPorHora`
-
-El redondeo lo encapsulé en `RedondeoHoras.alAlza(Duration)`:
+`costoBase = horasReales (redondeadas al alza) × tarifa`
 
 - 1h 10min → 2h
 - 2h exactas → 2h
-- 500 ms → 1h (cualquier uso > 0 implica al menos 1 hora facturable)
-- 0 ms → 0h
+- 500 ms → 1h (cualquier uso mayor a 0 cuenta como al menos 1 hora)
 
-### RN-03 — Multa por devolución tardía
+**RN-03 — Multa por devolución tardía**
 
-`multa = 50% × tarifaPorHora × horasRetrasoRedondeadasAlAlza`
+`multa = 50% × tarifa × horasDeRetraso (redondeadas al alza)`
 
-- Si la devolución es a tiempo o antes → multa = 0.
-- Mínimo facturable de retraso: 1 hora (un retraso de 30 segundos cuenta como
-  1h).
-- Verifiqué el ejemplo del enunciado: MONTAÑA, 2h estimadas, 3h 20min reales:
-  - Costo base: 4h × $5.000 = $20.000
-  - Multa: 2h × ($5.000 × 0.5) = $5.000
-  - **Total: $25.000** ✓
+- A tiempo o antes → multa = 0.
+- Si hay retraso, mínimo se cobra 1 hora (un retraso de 30 segundos cuenta
+  como 1 hora).
+- Verifiqué el ejemplo del enunciado (MONTAÑA, 2h estimadas, 3h 20min
+  reales): base 4h × $5.000 = $20.000, multa 2h × $2.500 = $5.000, total
+  $25.000.
 
-### RN-04 — No se puede alquilar una bicicleta no disponible
+**RN-04 — No alquilar bicicletas no disponibles**
 
-`AlquilerService.iniciar()` verifica el estado antes de aceptar el alquiler. Si
-la bici no está DISPONIBLE, lanzo `BicicletaNoDisponibleException` → HTTP 409.
+Si la bici no está en estado DISPONIBLE, no se puede alquilar (responde
+con 409).
 
-### RN-05 — No se puede finalizar un alquiler que no existe o ya terminó
+**RN-05 — No finalizar dos veces ni un alquiler que no existe**
 
-- Si el id no existe → `AlquilerNoEncontradoException` → HTTP 404.
-- Si ya tiene `horaFin` → `AlquilerYaFinalizadoException` → HTTP 409.
+- Alquiler no existente → 404.
+- Alquiler ya finalizado → 409.
 
 ---
 
 ## Manejo de errores
 
-Todas las excepciones se traducen a `ProblemDetail` (RFC 7807) en
-`GlobalExceptionHandler`. Quería que el formato del error fuera siempre el
-mismo, sin importar de dónde venga:
+Todas las respuestas de error usan el mismo formato (lo da `ProblemDetail`
+de Spring, que sigue la RFC 7807):
 
 ```json
 {
@@ -459,208 +369,172 @@ mismo, sin importar de dónde venga:
 }
 ```
 
-### Mapeo de excepciones a HTTP
-
-| Excepción | HTTP |
+| Caso | HTTP |
 |---|---|
-| `BicicletaNoEncontradaException` | 404 |
-| `AlquilerNoEncontradoException` | 404 |
-| `BicicletaNoDisponibleException` | 409 |
-| `AlquilerYaFinalizadoException` | 409 |
-| `CodigoBicicletaDuplicadoException` | 409 |
-| `OptimisticLockingFailureException` | 409 |
-| `MethodArgumentNotValidException` (Bean Validation) | 400 + lista de errores por campo |
-| `HttpMessageNotReadableException` (JSON malformado) | 400 |
-| `MethodArgumentTypeMismatchException` (enum inválido en query) | 400 |
-| Cualquier otra `Exception` | 500 (sin filtrar stack traces) |
+| Bicicleta o alquiler no encontrado | 404 |
+| Ruta no existe | 404 |
+| Bicicleta no disponible | 409 |
+| Alquiler ya finalizado | 409 |
+| Código de bicicleta duplicado | 409 |
+| Datos del request inválidos | 400 |
+| JSON malformado | 400 |
+| Cualquier error inesperado | 500 (sin filtrar stack traces) |
 
 ---
 
-## Pruebas
+## Tests
 
 ```bash
 ./mvnw test
 ```
 
-Escribí **47 tests automatizados**. La idea fue cubrir bien lo más sensible (el
-cálculo del costo y la multa) y dejar al menos un test de integración que
-recorra el flujo completo:
+Tengo **47 tests** entre unitarios y de integración. La idea fue cubrir
+bien lo más sensible (el cálculo) y al menos un test que recorra el flujo
+completo:
 
-| Suite | Qué cubre |
-|---|---|
-| `TarifaCalculatorTest` | RN-02 (redondeo del costo base), RN-03 (multa), validación de argumentos, consistencia interna |
-| `RedondeoHorasTest` | Tests parametrizados con `@CsvSource` para valores límite |
-| `AlquilerServiceTest` | Iniciar/finalizar con `Clock` fijo, RN-04, RN-05, errores |
-| `BicicletaServiceTest` | Crear/buscar/listar, código duplicado, filtros |
-| `AlquilerFlowIntegrationTest` | Integración end-to-end con `MockMvc` levantando todo el contexto de Spring (incluyendo la seguridad real). Flujo completo: crear bici → alquilar → finalizar → ver historial → intentar finalizar dos veces |
+- `TarifaCalculatorTest` — todos los casos del cálculo del costo y la
+  multa, incluyendo el ejemplo del enunciado.
+- `RedondeoHorasTest` — tests parametrizados con valores límite.
+- `AlquilerServiceTest` — flujo de iniciar/finalizar con el reloj
+  congelado.
+- `BicicletaServiceTest` — alta, búsqueda, listados, duplicados.
+- `AlquilerFlowIntegrationTest` — flujo entero con MockMvc levantando
+  todo el contexto, incluida la seguridad real.
 
 ---
 
 ## Supuestos que tomé
 
-El enunciado pide documentar los supuestos cuando haya ambigüedad, así que
-estos son los míos:
+El enunciado dice que documente los supuestos cuando haya ambigüedad, así
+que estos son los míos:
 
-1. **La hora de inicio y de devolución la asigna el servidor**, no el cliente.
-   Lo hice así para evitar que un cliente manipule las horas y obtenga
-   descuentos. Uso `LocalDateTime.now(clock)`, donde `clock` es inyectable
-   (así puedo congelarlo en los tests).
+1. **La hora de inicio y de fin la pone el servidor**, no el cliente. Así
+   nadie puede mandar una hora falsa para pagar menos. En los tests uso un
+   `Clock` que se puede congelar.
 
-2. **El tiempo real lo mido en milisegundos**: cualquier duración mayor que
-   cero implica cobrar al menos 1 hora. El enunciado no especifica precisión,
-   y me pareció más razonable que un uso de "1 segundo" cueste 1 hora a que
-   cueste $0.
+2. **El tiempo se mide en milisegundos**, pero cualquier uso mayor a 0
+   cuenta como al menos 1 hora. Me pareció más razonable que un uso de "1
+   segundo" cueste $3.500 a que cueste $0.
 
-3. **No hay descuento por devolución anticipada**: si el cliente declara 3h
-   pero devuelve a la 1h, solo le cobro 1h. El enunciado dice "costo base
-   sobre el tiempo real de uso", así que entendí que solo se paga lo que se
-   usa, sin penalizar tampoco por devolver antes.
+3. **No hay descuento por devolver antes**. Si el cliente dice 3h pero
+   devuelve a la 1h, le cobro 1h. El enunciado habla de "tiempo real de
+   uso", así que entendí que solo se paga lo que se usa, pero tampoco hay
+   bonus.
 
-4. **Concurrencia con bloqueo optimista**: agregué `@Version` a `Bicicleta`.
-   Si dos transacciones intentan alquilar la misma bici simultáneamente, solo
-   una gana — la otra recibe HTTP 409.
+4. **Concurrencia**: usé bloqueo optimista en la bici (`@Version`). Si dos
+   personas la intentan alquilar al mismo tiempo, solo una gana — la otra
+   recibe un 409.
 
-5. **EN_MANTENIMIENTO → DISPONIBLE manualmente**: el enunciado no pide un
-   endpoint para esta transición, así que no lo creé. Pero sí permití
-   registrar bicicletas con estado explícito distinto a DISPONIBLE, porque
-   BIC-004 del seed nace en mantenimiento.
+5. **No hice un endpoint para pasar de EN_MANTENIMIENTO a DISPONIBLE**
+   porque el enunciado no lo pide. Pero sí permití registrar bicicletas con
+   estado distinto a DISPONIBLE, porque BIC-004 del seed nace en
+   mantenimiento.
 
-6. **Seguridad básica = API Key**: implementada con un `OncePerRequestFilter`
-   sobre Spring Security. Cubre todo `/api/**`. Dejé abierto Swagger UI y la
-   consola H2 para que el revisor pueda probar fácil. En producción la
-   API Key debería venir de variable de entorno (`API_KEY`).
+6. **Seguridad básica = API Key**. La validación pasa por un filtro de
+   Spring Security. Swagger UI y la consola H2 quedan abiertas para que el
+   revisor pueda probar fácil.
 
-7. **Códigos de bicicleta validados con regex `^[A-Z0-9-]+$`**: solo
-   mayúsculas, dígitos y guiones (ej. `BIC-001`). Evita inconsistencias por
-   capitalización.
+7. **El código de bicicleta solo admite mayúsculas, dígitos y guiones**
+   (ej. `BIC-001`). Lo validé con regex (`^[A-Z0-9-]+$`).
 
 ---
 
 ## Despliegue en Azure
 
-La app está desplegada en **Azure Container Apps**:
-
-> **https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io**
->
-> Swagger UI: `/swagger-ui/index.html`. Los endpoints `/api/**` requieren el
-> header `X-API-KEY` (la clave es un secret del Container App).
-
-### Archivos relacionados
-
-| Archivo | Para qué |
-|---|---|
-| `Dockerfile` | Imagen multi-stage con JRE 21 alpine, usuario no-root, ~80MB |
-| `.dockerignore` | Excluye `target/`, `.git/`, etc., del contexto de build |
-| `.github/workflows/ci.yml` | Corre tests en cada push y PR |
-| `.github/workflows/azure-deploy.yml` | Build de imagen Docker + push a GHCR |
-| `deploy.ps1` | Script local que actualiza el Container App con la imagen recién publicada |
-| `DEPLOYMENT.md` | Guía completa paso a paso para reproducir el setup |
+La app está corriendo en **Azure Container Apps**, en la URL del inicio
+del README.
 
 ### Flujo
 
 ```
-git push main ──> GitHub Actions (build imagen + push a GHCR)
+git push main ──> GitHub Actions construye la imagen Docker y la sube a GHCR
                                           │
                                           ▼
-                            .\deploy.ps1 desde mi máquina
+                          .\deploy.ps1 desde mi máquina
                                           │
                                           ▼
-                       Azure Container App pull + nueva revisión
+                        Azure Container App toma la nueva imagen
 ```
 
-### Correr el contenedor en local
+### Por qué hay un último paso manual
 
-```bash
-docker build -t prueba-tecnica:local .
-docker run -p 8080:8080 -e API_KEY=mi-clave-segura prueba-tecnica:local
-```
+Mi cuenta de Azure es Azure for Students dentro del tenant de la
+universidad, y ahí no tengo permisos para registrar aplicaciones en
+Entra ID. Sin esos permisos no puedo crear el Service Principal que se
+necesita para que GitHub Actions se autentique contra Azure con OIDC.
 
-La app queda en http://localhost:8080.
+Como solución, dejé un script `deploy.ps1` que ejecuta el último paso
+desde mi máquina con un solo comando. El flujo termina siendo: hago push
+y, cuando el workflow termina de subir la imagen, ejecuto `.\deploy.ps1`.
 
-### Decisiones de despliegue
+Si en algún momento me dan los permisos, agregar el deploy automático al
+workflow son 5 líneas más — lo dejé explicado en `DEPLOYMENT.md`.
 
-- **Azure Container Apps** en lugar de App Service: free tier real (180.000
-  vCPU-segundos/mes), escalado a cero (no consume si nadie usa), más moderno.
-- **GHCR (GitHub Container Registry)** en lugar de Azure Container Registry:
-  gratis incluso para repos públicos, sin el costo extra de $5/mes de ACR.
-- **Dockerfile multi-stage**: la imagen final usa solo JRE (no JDK) sobre
-  alpine, resultando en ~80MB vs ~400MB de imágenes JDK estándar.
-- **Último paso manual con `deploy.ps1`**: mi cuenta de Azure for Students
-  está en el tenant universitario, donde no tengo permisos para registrar
-  apps en Entra ID. Sin esos permisos no puedo crear Service Principals
-  para autenticar GitHub Actions contra Azure (OIDC). El workflow construye
-  y publica la imagen automáticamente; yo solo ejecuto `.\deploy.ps1` para
-  que Azure tome la nueva versión. En un entorno con esos permisos
-  configurados, sustituir el script por dos pasos más en el workflow es
-  trivial — está documentado en `DEPLOYMENT.md`.
+### Decisiones del despliegue
 
-Para reproducir el setup paso a paso, ver [`DEPLOYMENT.md`](DEPLOYMENT.md).
+- **Container Apps** en vez de App Service porque tiene free tier real
+  (180.000 vCPU-segundos al mes gratis) y porque escala a cero cuando no
+  hay tráfico (así no consume nada estando inactivo).
+- **GHCR** (GitHub Container Registry) en vez de Azure Container Registry
+  porque es gratis y ya está integrado con GitHub Actions.
+- **Dockerfile multi-stage** con JRE 21 alpine y usuario no-root. La
+  imagen final pesa ~80MB.
+
+Más detalles para reproducirlo en [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 
 ## Estructura del proyecto
 
 ```
-prueba-tecnica-java/
+prueba-tecnica-ceiba/
 ├── pom.xml
-├── mvnw, mvnw.cmd                            # Maven Wrapper (sin instalar Maven)
-├── Dockerfile                                # Build multi-stage para producción
+├── mvnw, mvnw.cmd                # Maven Wrapper
+├── Dockerfile
 ├── .dockerignore
-├── deploy.ps1                                # Actualiza el Container App en Azure con la última imagen
-├── DEPLOYMENT.md                             # Guía paso a paso de despliegue
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                            # CI: build + tests en cada push
-│       └── azure-deploy.yml                  # Build imagen + push a GHCR
-├── src/
-│   ├── main/
-│   │   ├── java/com/luisdavid/pruebatecnica/
-│   │   │   ├── PruebaTecnicaJavaApplication.java
-│   │   │   ├── config/
-│   │   │   │   ├── DataSeeder.java           # Seed BIC-001..BIC-005
-│   │   │   │   ├── OpenApiConfig.java        # Metadata Swagger
-│   │   │   │   ├── TimeConfig.java           # Bean Clock
-│   │   │   │   └── security/
-│   │   │   │       ├── ApiKeyAuthenticationFilter.java
-│   │   │   │       └── SecurityConfig.java
-│   │   │   ├── domain/                       # Modelo de dominio
-│   │   │   │   ├── Bicicleta.java
-│   │   │   │   ├── Alquiler.java
-│   │   │   │   ├── TipoBicicleta.java        # enum con tarifa por hora
-│   │   │   │   ├── EstadoBicicleta.java
-│   │   │   │   └── RedondeoHoras.java        # utility de redondeo (DRY)
-│   │   │   ├── repository/                   # Spring Data JPA
-│   │   │   │   ├── BicicletaRepository.java
-│   │   │   │   └── AlquilerRepository.java
-│   │   │   ├── service/                      # Lógica de negocio
-│   │   │   │   ├── BicicletaService.java
-│   │   │   │   ├── AlquilerService.java
-│   │   │   │   ├── TarifaCalculator.java     # núcleo del cálculo monetario
-│   │   │   │   └── CalculoTarifa.java        # record de resultado
-│   │   │   ├── exception/                    # Excepciones de dominio + handler
-│   │   │   │   ├── BicicletaNoEncontradaException.java
-│   │   │   │   ├── BicicletaNoDisponibleException.java
-│   │   │   │   ├── AlquilerNoEncontradoException.java
-│   │   │   │   ├── AlquilerYaFinalizadoException.java
-│   │   │   │   ├── CodigoBicicletaDuplicadoException.java
-│   │   │   │   └── GlobalExceptionHandler.java
-│   │   │   └── web/                          # Capa HTTP
-│   │   │       ├── controller/
-│   │   │       │   ├── BicicletaController.java
-│   │   │       │   └── AlquilerController.java
-│   │   │       ├── dto/                      # Records de petición y respuesta
-│   │   │       └── mapper/                   # Entidad ↔ DTO
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-│       └── java/com/luisdavid/pruebatecnica/
-│           ├── domain/RedondeoHorasTest.java
-│           ├── service/
-│           │   ├── TarifaCalculatorTest.java
-│           │   ├── AlquilerServiceTest.java
-│           │   └── BicicletaServiceTest.java
-│           └── web/AlquilerFlowIntegrationTest.java
-└── README.md
+├── deploy.ps1                    # Script para actualizar Azure tras un push
+├── DEPLOYMENT.md                 # Cómo está montado Azure paso a paso
+├── .github/workflows/
+│   ├── ci.yml                    # Tests en cada push
+│   └── azure-deploy.yml          # Build de imagen y push a GHCR
+└── src/
+    ├── main/
+    │   ├── java/com/luisdavid/pruebatecnica/
+    │   │   ├── PruebaTecnicaJavaApplication.java
+    │   │   ├── config/
+    │   │   │   ├── DataSeeder.java
+    │   │   │   ├── OpenApiConfig.java
+    │   │   │   ├── TimeConfig.java
+    │   │   │   └── security/
+    │   │   │       ├── ApiKeyAuthenticationFilter.java
+    │   │   │       └── SecurityConfig.java
+    │   │   ├── domain/
+    │   │   │   ├── Bicicleta.java
+    │   │   │   ├── Alquiler.java
+    │   │   │   ├── TipoBicicleta.java
+    │   │   │   ├── EstadoBicicleta.java
+    │   │   │   └── RedondeoHoras.java
+    │   │   ├── repository/
+    │   │   ├── service/
+    │   │   │   ├── BicicletaService.java
+    │   │   │   ├── AlquilerService.java
+    │   │   │   ├── TarifaCalculator.java
+    │   │   │   └── CalculoTarifa.java
+    │   │   ├── exception/        # Excepciones de dominio + handler global
+    │   │   └── web/
+    │   │       ├── controller/
+    │   │       ├── dto/
+    │   │       └── mapper/
+    │   └── resources/
+    │       └── application.properties
+    └── test/
+        └── java/.../
+            ├── domain/RedondeoHorasTest.java
+            ├── service/
+            │   ├── TarifaCalculatorTest.java
+            │   ├── AlquilerServiceTest.java
+            │   └── BicicletaServiceTest.java
+            └── web/AlquilerFlowIntegrationTest.java
 ```
 
 ---
