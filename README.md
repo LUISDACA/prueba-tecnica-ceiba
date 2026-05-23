@@ -10,6 +10,27 @@ está organizado como está y revisar cualquier decisión que tomé.
 
 ---
 
+## Demo en vivo
+
+La app está corriendo en Azure Container Apps. Se puede probar directamente
+sin clonar el repositorio:
+
+| | |
+|---|---|
+| **URL base** | https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io |
+| **Swagger UI** | [/swagger-ui/index.html](https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io/swagger-ui/index.html) |
+| **API Key** (para evaluación) | `jSVF2NqpgpKwrfAE5IDOmdKz3lJX` |
+
+Los endpoints `/api/**` requieren enviar el header `X-API-KEY` con esa clave.
+Los endpoints de Swagger UI y la spec OpenAPI son públicos para facilitar la
+revisión. Más ejemplos en la sección [Probar la API en producción](#probar-la-api-en-producción).
+
+> La app escala a cero cuando no hay tráfico, así que la primera petición tras
+> un rato sin uso puede tardar ~5-10 segundos en responder mientras el
+> contenedor se levanta.
+
+---
+
 ## Tabla de contenido
 
 1. [Qué hace](#qué-hace)
@@ -18,13 +39,14 @@ está organizado como está y revisar cualquier decisión que tomé.
 4. [Stack](#stack)
 5. [Cómo correr el proyecto](#cómo-correr-el-proyecto)
 6. [Configuración](#configuración)
-7. [Endpoints con ejemplos](#endpoints-con-ejemplos)
-8. [Reglas de negocio](#reglas-de-negocio)
-9. [Manejo de errores](#manejo-de-errores)
-10. [Pruebas](#pruebas)
-11. [Supuestos que tomé](#supuestos-que-tomé)
-12. [Despliegue en Azure](#despliegue-en-azure)
-13. [Estructura del proyecto](#estructura-del-proyecto)
+7. [Probar la API en producción](#probar-la-api-en-producción)
+8. [Endpoints con ejemplos](#endpoints-con-ejemplos)
+9. [Reglas de negocio](#reglas-de-negocio)
+10. [Manejo de errores](#manejo-de-errores)
+11. [Pruebas](#pruebas)
+12. [Supuestos que tomé](#supuestos-que-tomé)
+13. [Despliegue en Azure](#despliegue-en-azure)
+14. [Estructura del proyecto](#estructura-del-proyecto)
 
 ---
 
@@ -147,9 +169,9 @@ La aplicación arranca en **http://localhost:8080** en unos 4 segundos.
 | OpenAPI JSON | http://localhost:8080/v3/api-docs |
 | Consola H2 | http://localhost:8080/h2-console (JDBC URL: `jdbc:h2:mem:alquileresdb`, user: `sa`, sin password) |
 
-> 💡 La forma más cómoda de probar la API es desde Swagger UI: hay un botón
-> *Authorize* donde se pega la API Key una sola vez y todos los endpoints
-> quedan listos para probar.
+La forma más cómoda de probar la API es desde Swagger UI: hay un botón
+*Authorize* donde se pega la API Key una sola vez y todos los endpoints
+quedan listos para probar.
 
 ---
 
@@ -170,6 +192,61 @@ un default para que el revisor pueda correr todo sin configurar nada.
 
 ```bash
 API_KEY=clave-secreta-real ./mvnw spring-boot:run
+```
+
+---
+
+## Probar la API en producción
+
+Para evaluar el comportamiento real sin correr nada localmente, estos curl van
+directo contra la app desplegada en Azure (recordar que la primera petición
+tras inactividad puede tardar ~10s mientras el contenedor se levanta).
+
+Variables que uso en los ejemplos:
+
+```bash
+URL="https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io"
+KEY="jSVF2NqpgpKwrfAE5IDOmdKz3lJX"
+```
+
+### Listar las 5 bicicletas del seed
+
+```bash
+curl -H "X-API-KEY: $KEY" $URL/api/v1/bicicletas
+```
+
+### Disponibles filtradas por tipo
+
+```bash
+curl -H "X-API-KEY: $KEY" "$URL/api/v1/bicicletas/disponibles?tipo=URBANA"
+```
+
+### Iniciar un alquiler
+
+```bash
+curl -X POST -H "X-API-KEY: $KEY" -H "Content-Type: application/json" \
+     -d '{"codigoBicicleta":"BIC-002","nombreCliente":"Evaluador","duracionEstimadaHoras":2}' \
+     $URL/api/v1/alquileres
+```
+
+### Finalizar ese alquiler (calcular costo + multa)
+
+```bash
+# Reemplaza {id} por el id devuelto en el paso anterior
+curl -X PATCH -H "X-API-KEY: $KEY" $URL/api/v1/alquileres/{id}/finalizar
+```
+
+### Ver el historial de una bicicleta
+
+```bash
+curl -H "X-API-KEY: $KEY" $URL/api/v1/bicicletas/BIC-002/historial
+```
+
+### Comprobar que la seguridad funciona
+
+```bash
+# Sin header -> 401 Unauthorized
+curl -i $URL/api/v1/bicicletas
 ```
 
 ---
@@ -529,11 +606,12 @@ prueba-tecnica-java/
 ├── mvnw, mvnw.cmd                            # Maven Wrapper (sin instalar Maven)
 ├── Dockerfile                                # Build multi-stage para producción
 ├── .dockerignore
+├── deploy.ps1                                # Actualiza el Container App en Azure con la última imagen
 ├── DEPLOYMENT.md                             # Guía paso a paso de despliegue
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                            # CI: build + tests en cada push
-│       └── azure-deploy.yml                  # CD: deploy a Azure Container Apps
+│       └── azure-deploy.yml                  # Build imagen + push a GHCR
 ├── src/
 │   ├── main/
 │   │   ├── java/com/luisdavid/pruebatecnica/
@@ -587,4 +665,5 @@ prueba-tecnica-java/
 
 ---
 
-**Luis Miguel David Campo** — migueldavidcampo@gmail.com
+**Luis Miguel David Campo**
+[migueldavidcampo@gmail.com](mailto:migueldavidcampo@gmail.com) · [github.com/LUISDACA](https://github.com/LUISDACA)
