@@ -1,20 +1,14 @@
-name: Build, push & deploy a Azure Container Apps
+name: Build & push imagen a GHCR
 
-# Flujo:
-#   1. Construye la imagen Docker (multi-stage).
-#   2. La sube a GitHub Container Registry (GHCR) tageada con :latest y :<sha>.
-#   3. Autentica con Azure via OIDC (Federated Credentials — sin secretos
-#      de larga duración).
-#   4. Actualiza la Azure Container App para que use la nueva imagen.
+# Construye la imagen Docker y la sube a GitHub Container Registry (GHCR)
+# en cada push a main. El despliegue a Azure Container Apps se hace después
+# corriendo el script ./deploy.ps1 desde local (ver DEPLOYMENT.md).
 #
-# Configuración requerida (ver DEPLOYMENT.md):
-#   Secrets (Settings > Secrets and variables > Actions > Secrets):
-#     - AZURE_CLIENT_ID:        appId del Service Principal
-#     - AZURE_TENANT_ID:        tenant del Service Principal
-#     - AZURE_SUBSCRIPTION_ID:  suscripción de Azure
-#   Variables (Settings > Secrets and variables > Actions > Variables):
-#     - AZURE_RESOURCE_GROUP:   nombre del Resource Group
-#     - AZURE_CONTAINER_APP:    nombre del Container App
+# Por qué no hacemos también el deploy a Azure desde aquí:
+# La cuenta de Azure for Students de la universidad no permite crear Service
+# Principals (necesarios para OIDC). Si en un futuro el admin del tenant
+# habilita ese permiso, el workflow se puede extender fácilmente con
+# 'azure/login@v2' + 'azure/container-apps-deploy-action@v2'.
 
 on:
   push:
@@ -24,14 +18,13 @@ on:
 permissions:
   contents: read
   packages: write       # para pushear a GHCR
-  id-token: write       # para login OIDC contra Azure
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
@@ -67,16 +60,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Update Container App with new image
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-          containerAppName: ${{ vars.AZURE_CONTAINER_APP }}
+      - name: Resumen
+        run: |
+          echo "Imagen publicada en: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo "Para desplegar a Azure, corre desde local:"
+          echo "  ./deploy.ps1"

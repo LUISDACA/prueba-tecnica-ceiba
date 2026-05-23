@@ -1,78 +1,98 @@
-# Guía de despliegue a Azure Container Apps
+# Despliegue en Azure Container Apps
 
-Este documento describe paso a paso cómo desplegar la API en Azure Container
-Apps usando GitHub Actions + GitHub Container Registry (GHCR), con
-autenticación moderna por OIDC (Federated Credentials).
+La app está desplegada en **Azure Container Apps** y disponible en:
 
-> 📌 El workflow ya está creado en `.github/workflows/azure-deploy.yml`. Solo
-> falta crear los recursos en Azure y configurar los secrets/variables en
-> GitHub.
-
----
-
-## 1. Pre-requisitos
-
-- Cuenta de Azure activa (Free Trial, Azure for Students o pagada).
-- Repositorio publicado en GitHub.
-- Azure CLI instalada localmente (`winget install Microsoft.AzureCLI` en
-  Windows). Alternativamente todo se puede hacer desde el portal web, pero
-  con CLI es más rápido y reproducible.
+> **https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io**
+>
+> Swagger UI: `/swagger-ui/index.html`
+>
+> Endpoints `/api/**` requieren el header `X-API-KEY` (la clave se configuró
+> como secreto en el Container App, no se publica en este repo).
 
 ---
 
-## 2. Variables que usaré en los comandos
+## Cómo funciona el flujo
 
-Ajusta los nombres si quieres. El **nombre del Container App debe ser único en
-tu suscripción**.
-
-```bash
-RG="rg-prueba-tecnica"
-LOCATION="eastus"
-ENV="env-prueba-tecnica"
-APP="prueba-tecnica-java"
-SP_NAME="sp-github-deploy-prueba-tecnica"
-GITHUB_REPO="<tu-usuario>/<tu-repo>"
+```
+git push origin main
+       │
+       ▼
+GitHub Actions (.github/workflows/azure-deploy.yml)
+       │
+       ├── Build de imagen Docker (multi-stage)
+       └── Push a GHCR (ghcr.io/luisdaca/prueba-tecnica-ceiba:latest)
+       │
+       ▼
+[manual]  .\deploy.ps1   (desde mi máquina local)
+       │
+       └── az containerapp update --image ...
+             │
+             ▼
+Azure Container Apps actualiza la revisión y enruta el tráfico
 ```
 
+### Por qué el último paso es manual
+
+La cuenta `@campusucc.edu.co` (Azure for Students en el tenant de mi
+universidad) **no tiene permisos para registrar aplicaciones en Microsoft
+Entra ID**, lo que impide crear Service Principals para autenticar GitHub
+Actions contra Azure por OIDC.
+
+Si en un futuro el admin del tenant me habilita ese permiso, el workflow se
+puede extender en pocas líneas con `azure/login@v2` + `azure/container-apps-deploy-action@v2`
+y el deploy queda 100% automático.
+
+Como compensación, dejé un script `deploy.ps1` que ejecuta el update con un
+solo comando local — el flujo termina siendo:
+
+1. `git push` → GitHub Actions construye y publica la imagen automáticamente.
+2. `.\deploy.ps1` → Azure usa la nueva imagen.
+
 ---
 
-## 3. Login en Azure
+## Recursos creados en Azure
+
+| Recurso | Nombre | Notas |
+|---|---|---|
+| Resource Group | `rg-prueba-tecnica` | Región: Central US (única permitida por Azure for Students en mi caso) |
+| Container Apps Environment | `env-prueba-tecnica` | El "namespace" lógico donde vive la app |
+| Container App | `prueba-tecnica-ceiba` | 0–2 réplicas, 0.5 vCPU, 1 GiB de memoria |
+| Secret (en el Container App) | `api-key` | Inyectado al contenedor como variable de entorno `API_KEY` |
+
+### Por qué Container Apps en lugar de App Service
+
+- Free tier real (180.000 vCPU-segundos/mes gratis).
+- Escalado a cero automático: si nadie usa la app por minutos, no consume.
+- Más moderno (corre sobre Kubernetes managed por Microsoft).
+
+---
+
+## Comandos que usé para crear los recursos
 
 ```bash
+# 1. Login
 az login
-```
 
-Si tienes varias suscripciones:
+# 2. Variables
+RG="rg-prueba-tecnica"
+LOCATION="centralus"
+ENV="env-prueba-tecnica"
+APP="prueba-tecnica-ceiba"
+API_KEY_VALUE="<clave-segura-generada>"
 
-```bash
-az account list -o table
-az account set --subscription "<id-o-nombre-suscripcion>"
-```
+# 3. Asegurar extensiones / providers
+az extension add --name containerapp --upgrade
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
 
----
-
-## 4. Crear los recursos de Azure
-
-### 4.1 Resource Group
-
-```bash
+# 4. Resource Group y Environment
 az group create --name $RG --location $LOCATION
-```
-
-### 4.2 Container Apps Environment
-
-```bash
 az containerapp env create \
     --name $ENV \
     --resource-group $RG \
     --location $LOCATION
-```
 
-> Tarda ~2 minutos. Es un namespace lógico donde viven las Container Apps.
-
-### 4.3 La Container App (con imagen placeholder por ahora)
-
-```bash
+# 5. Container App (con imagen placeholder inicial)
 az containerapp create \
     --name $APP \
     --resource-group $RG \
@@ -84,159 +104,64 @@ az containerapp create \
     --max-replicas 2 \
     --cpu 0.5 \
     --memory 1Gi \
-    --env-vars "API_KEY=secretref:api-key" \
-    --secrets "api-key=<elige-una-api-key-segura>"
-```
+    --secrets "api-key=$API_KEY_VALUE" \
+    --env-vars "API_KEY=secretref:api-key"
 
-Reemplaza `<elige-una-api-key-segura>` por una clave fuerte (ej. salida de
-`openssl rand -base64 32`).
-
-> 💡 `min-replicas=0` hace que la app escale a cero cuando no hay tráfico —
-> es lo que mantiene el costo en $0 dentro del free tier.
-
----
-
-## 5. Configurar autenticación GitHub Actions → Azure (OIDC)
-
-Esto crea un **Service Principal** que solo puede ser invocado desde tu
-workflow específico, sin contraseñas. Es la práctica moderna recomendada por
-Microsoft.
-
-### 5.1 Crear el Service Principal
-
-```bash
-SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-
-az ad sp create-for-rbac \
-    --name $SP_NAME \
-    --role contributor \
-    --scopes /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG \
-    --json-auth
-```
-
-Copia los valores `clientId`, `tenantId` y `subscriptionId` — los necesitarás
-en GitHub.
-
-### 5.2 Configurar Federated Credentials
-
-Reemplaza `<APP_ID>` por el `clientId` de arriba y `<GITHUB_REPO>` por
-`usuario/repo`:
-
-```bash
-APP_ID="<APP_ID>"
-
-az ad app federated-credential create \
-    --id $APP_ID \
-    --parameters '{
-      "name": "github-actions-main",
-      "issuer": "https://token.actions.githubusercontent.com",
-      "subject": "repo:'$GITHUB_REPO':ref:refs/heads/main",
-      "audiences": ["api://AzureADTokenExchange"]
-    }'
-```
-
-Esto autoriza al workflow corriendo en la rama `main` del repo a obtener
-tokens de Azure sin contraseñas.
-
----
-
-## 6. Configurar los secrets y variables en GitHub
-
-En GitHub, ve a tu repositorio → **Settings → Secrets and variables →
-Actions**.
-
-### Secrets (pestaña "Secrets")
-
-| Nombre | Valor |
-|---|---|
-| `AZURE_CLIENT_ID` | `clientId` del Service Principal |
-| `AZURE_TENANT_ID` | `tenantId` |
-| `AZURE_SUBSCRIPTION_ID` | `subscriptionId` |
-
-### Variables (pestaña "Variables")
-
-| Nombre | Valor |
-|---|---|
-| `AZURE_RESOURCE_GROUP` | El valor de `$RG` (ej. `rg-prueba-tecnica`) |
-| `AZURE_CONTAINER_APP` | El valor de `$APP` (ej. `prueba-tecnica-java`) |
-
----
-
-## 7. Hacer público el paquete de GHCR (opcional pero recomendado)
-
-Por defecto las imágenes pusheadas a GHCR son privadas. Para que Container
-Apps pueda hacer pull sin credenciales, hazlo público:
-
-1. Tras el primer push exitoso desde GitHub Actions, ve a tu perfil de GitHub
-   → **Packages**.
-2. Click en `prueba-tecnica-java`.
-3. **Package settings** (botón derecho) → **Change visibility** → **Public**.
-
-> Si prefieres mantener la imagen privada, configura un Pull Secret en
-> Container Apps con `az containerapp registry set --identity system ...` —
-> escapa al alcance de esta guía pero está documentado en Microsoft Learn.
-
----
-
-## 8. Disparar el primer despliegue
-
-```bash
-git push origin main
-```
-
-GitHub Actions ejecutará el workflow `azure-deploy.yml`:
-- Construirá la imagen Docker.
-- La subirá a GHCR.
-- Actualizará la Container App.
-
-Ve a la pestaña **Actions** del repo para seguir el progreso (~3-5 min).
-
----
-
-## 9. Obtener la URL pública
-
-```bash
-az containerapp show \
+# 6. Primer despliegue manual (apuntar a la imagen real en GHCR)
+az containerapp update \
     --name $APP \
     --resource-group $RG \
-    --query "properties.configuration.ingress.fqdn" \
-    -o tsv
-```
-
-Te dará algo como `prueba-tecnica-java.kindrock-12345.eastus.azurecontainerapps.io`.
-
-Pruébalo:
-
-```bash
-URL="https://<fqdn-obtenido-arriba>"
-curl $URL/v3/api-docs
-curl -H "X-API-KEY: <tu-api-key>" $URL/api/v1/bicicletas
-```
-
-Y accede a Swagger UI:
-
-```
-https://<fqdn>/swagger-ui/index.html
+    --image ghcr.io/luisdaca/prueba-tecnica-ceiba:latest
 ```
 
 ---
 
-## 10. Monitoreo y logs
+## Re-desplegar tras un cambio en el código
+
+```powershell
+# 1. Hacer el cambio, commit y push
+git add .
+git commit -m "<descripción del cambio>"
+git push
+
+# 2. Esperar a que el workflow termine (verlo en github.com/.../actions)
+#    Cuando aparezca "Imagen publicada en ghcr.io/...:latest" la imagen ya
+#    está en el registry.
+
+# 3. Actualizar el Container App con la nueva imagen
+.\deploy.ps1
+```
+
+El script `deploy.ps1` espera a que la nueva revisión esté `Running` y
+imprime la URL pública al final.
+
+---
+
+## Operaciones útiles
 
 ```bash
-# Stream de logs en vivo
-az containerapp logs show --name $APP --resource-group $RG --follow
+# URL pública
+az containerapp show --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica \
+    --query "properties.configuration.ingress.fqdn" -o tsv
 
-# Estado actual
-az containerapp show --name $APP --resource-group $RG -o table
+# Stream de logs
+az containerapp logs show --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica --follow
+
+# Listar revisiones (cada deploy crea una)
+az containerapp revision list --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica -o table
+
+# Rotar el secreto api-key
+az containerapp secret set --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica \
+    --secrets "api-key=<nueva-clave>"
+az containerapp update --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica
 ```
 
 ---
 
-## 11. Limpiar todo (cuando ya no necesites el despliegue)
+## Limpiar todo (cuando ya no haga falta)
 
 ```bash
-az group delete --name $RG --yes --no-wait
+az group delete --name rg-prueba-tecnica --yes --no-wait
 ```
 
-Esto elimina todos los recursos creados.
+Elimina todos los recursos creados de una sola vez.

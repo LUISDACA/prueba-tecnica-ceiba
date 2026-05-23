@@ -461,52 +461,63 @@ estos son los míos:
 
 ## Despliegue en Azure
 
-El repo incluye todo lo necesario para desplegar a **Azure Container Apps**
-con CI/CD automático vía GitHub Actions:
+La app está desplegada en **Azure Container Apps**:
+
+> **https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io**
+>
+> Swagger UI: `/swagger-ui/index.html`. Los endpoints `/api/**` requieren el
+> header `X-API-KEY` (la clave es un secret del Container App).
+
+### Archivos relacionados
 
 | Archivo | Para qué |
 |---|---|
 | `Dockerfile` | Imagen multi-stage con JRE 21 alpine, usuario no-root, ~80MB |
 | `.dockerignore` | Excluye `target/`, `.git/`, etc., del contexto de build |
 | `.github/workflows/ci.yml` | Corre tests en cada push y PR |
-| `.github/workflows/azure-deploy.yml` | Build → push a GHCR → update Container App |
-| `DEPLOYMENT.md` | Guía completa paso a paso para configurar Azure |
+| `.github/workflows/azure-deploy.yml` | Build de imagen Docker + push a GHCR |
+| `deploy.ps1` | Script local que actualiza el Container App con la imagen recién publicada |
+| `DEPLOYMENT.md` | Guía completa paso a paso para reproducir el setup |
 
-### Correr el contenedor localmente
+### Flujo
+
+```
+git push main ──> GitHub Actions (build imagen + push a GHCR)
+                                          │
+                                          ▼
+                            .\deploy.ps1 desde mi máquina
+                                          │
+                                          ▼
+                       Azure Container App pull + nueva revisión
+```
+
+### Correr el contenedor en local
 
 ```bash
 docker build -t prueba-tecnica:local .
 docker run -p 8080:8080 -e API_KEY=mi-clave-segura prueba-tecnica:local
 ```
 
-La app queda disponible en http://localhost:8080.
-
-### Stack de despliegue
-
-```
-GitHub push (main) ──> GitHub Actions
-                            │
-                            ├── Build imagen Docker (multi-stage)
-                            ├── Push a GHCR (GitHub Container Registry)
-                            ├── Login a Azure (OIDC, sin secretos)
-                            └── az containerapp update --image ...
-                                       │
-                                       └── App live en *.azurecontainerapps.io
-```
+La app queda en http://localhost:8080.
 
 ### Decisiones de despliegue
 
 - **Azure Container Apps** en lugar de App Service: free tier real (180.000
   vCPU-segundos/mes), escalado a cero (no consume si nadie usa), más moderno.
-- **GHCR** en lugar de Azure Container Registry: gratis incluso para repos
-  públicos, sin costo extra de $5/mes.
-- **OIDC (Federated Credentials)** en lugar de service principal con secret:
-  es la práctica moderna recomendada por Microsoft, no requiere rotar
-  contraseñas y limita el acceso al workflow específico.
-- **Dockerfile multi-stage**: la imagen final usa solo JRE (no JDK) y alpine,
-  resultando en ~80MB vs ~400MB de imágenes JDK estándar.
+- **GHCR (GitHub Container Registry)** en lugar de Azure Container Registry:
+  gratis incluso para repos públicos, sin el costo extra de $5/mes de ACR.
+- **Dockerfile multi-stage**: la imagen final usa solo JRE (no JDK) sobre
+  alpine, resultando en ~80MB vs ~400MB de imágenes JDK estándar.
+- **Último paso manual con `deploy.ps1`**: mi cuenta de Azure for Students
+  está en el tenant universitario, donde no tengo permisos para registrar
+  apps en Entra ID. Sin esos permisos no puedo crear Service Principals
+  para autenticar GitHub Actions contra Azure (OIDC). El workflow construye
+  y publica la imagen automáticamente; yo solo ejecuto `.\deploy.ps1` para
+  que Azure tome la nueva versión. En un entorno con esos permisos
+  configurados, sustituir el script por dos pasos más en el workflow es
+  trivial — está documentado en `DEPLOYMENT.md`.
 
-Para el setup completo paso a paso ver [`DEPLOYMENT.md`](DEPLOYMENT.md).
+Para reproducir el setup paso a paso, ver [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 
