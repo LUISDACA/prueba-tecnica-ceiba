@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
@@ -85,6 +86,14 @@ public class GlobalExceptionHandler {
         String msg = "El parámetro '" + ex.getName() + "' con valor '" + ex.getValue()
                 + "' no es válido";
         return build(HttpStatus.BAD_REQUEST, "Parámetro inválido", msg);
+    }
+
+    /** Ruta inexistente. Devuelve 404 limpio en lugar de filtrar al handler genérico. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResource(NoResourceFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, "Ruta no encontrada",
+                "La ruta '/" + ex.getResourcePath() + "' no existe en esta API. "
+                        + "Ver Swagger UI en /swagger-ui/index.html");
     }
 
     /** Cualquier excepción de estado ilegal proveniente del dominio. */
