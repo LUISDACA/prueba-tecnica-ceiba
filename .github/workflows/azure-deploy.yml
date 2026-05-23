@@ -1,0 +1,79 @@
+name: Build, push & deploy a Azure Container Apps
+
+# Flujo:
+#   1. Construye la imagen Docker (multi-stage).
+#   2. La sube a GitHub Container Registry (GHCR) tageada con :latest y :<sha>.
+#   3. Autentica con Azure via OIDC (Federated Credentials — sin secretos
+#      de larga duración).
+#   4. Actualiza la Azure Container App para que use la nueva imagen.
+#
+# Configuración requerida (ver DEPLOYMENT.md):
+#   Secrets (Settings > Secrets and variables > Actions > Secrets):
+#     - AZURE_CLIENT_ID:        appId del Service Principal
+#     - AZURE_TENANT_ID:        tenant del Service Principal
+#     - AZURE_SUBSCRIPTION_ID:  suscripción de Azure
+#   Variables (Settings > Secrets and variables > Actions > Variables):
+#     - AZURE_RESOURCE_GROUP:   nombre del Resource Group
+#     - AZURE_CONTAINER_APP:    nombre del Container App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write       # para pushear a GHCR
+  id-token: write       # para login OIDC contra Azure
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App with new image
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ vars.AZURE_CONTAINER_APP }}
