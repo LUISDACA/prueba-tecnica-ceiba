@@ -437,6 +437,16 @@ que estos son los mios:
 7. **El codigo de bicicleta solo admite mayusculas, digitos y guiones**
    (ej. `BIC-001`). Lo valide con regex (`^[A-Z0-9-]+$`).
 
+8. **Cambie los nombres de los tipos a ASCII puro.** El enunciado los lista
+   como `URBANA`, `MONTAÑA` y `ELÉCTRICA`, pero en el codigo quedaron como
+   `URBANA`, `MONTANA` y `ELECTRICA` (sin acentos). Lo hice porque tener
+   caracteres especiales en los valores de un enum trae problemas de
+   codificacion segun la terminal o el cliente que consuma la API (por
+   ejemplo, en Windows con PowerShell se ven como `MONTAÃA`). Dejandolos
+   en ASCII el JSON sale limpio en cualquier entorno y el contrato queda
+   consistente para todos los clientes. El significado del enunciado se
+   mantiene; solo cambia la forma de escribirlo.
+
 ---
 
 ## Despliegue en Azure
