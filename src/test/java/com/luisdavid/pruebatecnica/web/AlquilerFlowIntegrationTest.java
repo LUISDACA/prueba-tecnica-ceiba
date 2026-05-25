@@ -28,14 +28,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Pruebas de integración end-to-end de la API.
+ * Pruebas de integracion end-to-end de la API.
  *
  * <p>Levanta el contexto completo de Spring Boot con H2 en memoria. Cada test
  * inserta su propio estado en {@link BicicletaRepository} y verifica la respuesta
  * HTTP (status, headers, body) mediante {@link MockMvc}.</p>
  *
- * <p>Perfil {@code test}: deshabilita el DataSeeder de producción para que la BD
- * arranque vacía y cada test sea independiente.</p>
+ * <p>Perfil {@code test}: deshabilita el DataSeeder de produccion para que la BD
+ * arranque vacia y cada test sea independiente.</p>
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.security.api-key=test-key",
         "app.security.api-key-header=X-API-KEY"
 })
-@DisplayName("Flujo de alquiler — integración")
+@DisplayName("Flujo de alquiler — integracion")
 class AlquilerFlowIntegrationTest {
 
     private static final String API_KEY = "test-key";
@@ -64,7 +64,7 @@ class AlquilerFlowIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // springSecurity() añade la cadena de filtros real para que el API Key se valide
+        // springSecurity() anade la cadena de filtros real para que el API Key se valide
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity())
                 .build();
@@ -100,7 +100,7 @@ class AlquilerFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("Validación: codigo vacío devuelve 400 con errores por campo")
+    @DisplayName("Validacion: codigo vacio devuelve 400 con errores por campo")
     void validacionCampos() throws Exception {
         String body = mapper.writeValueAsString(Map.of("codigo", "", "tipo", "URBANA"));
 
@@ -109,14 +109,14 @@ class AlquilerFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Datos inválidos"))
+                .andExpect(jsonPath("$.title").value("Datos invalidos"))
                 .andExpect(jsonPath("$.errores.codigo").exists());
     }
 
     @Test
     @DisplayName("RN-04: alquilar bicicleta EN_MANTENIMIENTO devuelve 409")
     void alquilarBicicletaEnMantenimiento() throws Exception {
-        bicicletaRepository.save(new Bicicleta("BIC-MNT", TipoBicicleta.MONTAÑA, EstadoBicicleta.EN_MANTENIMIENTO));
+        bicicletaRepository.save(new Bicicleta("BIC-MNT", TipoBicicleta.MONTANA, EstadoBicicleta.EN_MANTENIMIENTO));
 
         String body = mapper.writeValueAsString(Map.of(
                 "codigoBicicleta", "BIC-MNT",
@@ -175,7 +175,7 @@ class AlquilerFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         Long alqId = ((Number) mapper.readValue(createdJson, Map.class).get("id")).longValue();
 
-        // 3) La bici ahora está ALQUILADA
+        // 3) La bici ahora esta ALQUILADA
         mvc.perform(get("/api/v1/bicicletas/BIC-INT").header("X-API-KEY", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("ALQUILADA"));
@@ -208,7 +208,7 @@ class AlquilerFlowIntegrationTest {
     void filtrarDisponiblesPorTipo() throws Exception {
         bicicletaRepository.save(new Bicicleta("BIC-U1", TipoBicicleta.URBANA, EstadoBicicleta.DISPONIBLE));
         bicicletaRepository.save(new Bicicleta("BIC-U2", TipoBicicleta.URBANA, EstadoBicicleta.ALQUILADA));
-        bicicletaRepository.save(new Bicicleta("BIC-M1", TipoBicicleta.MONTAÑA, EstadoBicicleta.DISPONIBLE));
+        bicicletaRepository.save(new Bicicleta("BIC-M1", TipoBicicleta.MONTANA, EstadoBicicleta.DISPONIBLE));
 
         mvc.perform(get("/api/v1/bicicletas/disponibles").param("tipo", "URBANA")
                         .header("X-API-KEY", API_KEY))

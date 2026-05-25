@@ -13,16 +13,16 @@ import jakarta.persistence.Version;
 /**
  * Bicicleta del sistema de alquiler (RF-01).
  *
- * <p>Identidad: el {@code id} numérico es la PK técnica; el {@code codigo} es el
- * identificador de negocio único (ej. {@code BIC-001}).</p>
+ * <p>Identidad: el {@code id} numerico es la PK tecnica; el {@code codigo} es el
+ * identificador de negocio unico (ej. {@code BIC-001}).</p>
  *
  * <p>Concurrencia: {@link #version} habilita bloqueo optimista (JPA {@code @Version}).
- * Si dos transacciones intentan alquilar la misma bici simultáneamente, solo la primera
- * persistirá; la segunda lanzará {@code ObjectOptimisticLockingFailureException},
+ * Si dos transacciones intentan alquilar la misma bici simultaneamente, solo la primera
+ * persistira; la segunda lanzara {@code ObjectOptimisticLockingFailureException},
  * que el manejador global traduce a HTTP 409.</p>
  *
  * <p>No uso {@code @Data} de Lombok porque genera {@code equals}/{@code hashCode}
- * sobre todos los campos, lo cual rompe el contrato cuando el id se asigna después
+ * sobre todos los campos, lo cual rompe el contrato cuando el id se asigna despues
  * de persistir. Defino igualdad por la PK (ver {@link #equals(Object)}).</p>
  */
 @Entity
@@ -60,14 +60,14 @@ public class Bicicleta {
     // --- Comportamiento de dominio ---
 
     /**
-     * Marca la bicicleta como alquilada. Valida la transición (RN-04).
+     * Marca la bicicleta como alquilada. Valida la transicion (RN-04).
      *
-     * @throws IllegalStateException si la bici no está disponible.
+     * @throws IllegalStateException si la bici no esta disponible.
      */
     public void marcarComoAlquilada() {
         if (estado != EstadoBicicleta.DISPONIBLE) {
             throw new IllegalStateException(
-                    "La bicicleta " + codigo + " no está disponible (estado actual: " + estado + ")");
+                    "La bicicleta " + codigo + " no esta disponible (estado actual: " + estado + ")");
         }
         this.estado = EstadoBicicleta.ALQUILADA;
     }

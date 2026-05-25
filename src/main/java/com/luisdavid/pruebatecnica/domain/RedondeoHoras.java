@@ -5,7 +5,7 @@ import java.time.Duration;
 /**
  * Redondeo al alza de duraciones a horas completas (RN-02).
  *
- * <p>Vive en el paquete de dominio porque es lógica de negocio pura
+ * <p>Vive en el paquete de dominio porque es logica de negocio pura
  * (no depende de Spring ni de la BD). Se reutiliza en
  * {@code TarifaCalculator} y en los mappers de salida — DRY.</p>
  *
@@ -17,7 +17,7 @@ import java.time.Duration;
  *   <li>{@code Duration.ZERO} → 0h</li>
  * </ul>
  *
- * <p>Trabaja sobre milisegundos para no perder precisión con fracciones de segundo.</p>
+ * <p>Trabaja sobre milisegundos para no perder precision con fracciones de segundo.</p>
  */
 public final class RedondeoHoras {
 
@@ -32,7 +32,7 @@ public final class RedondeoHoras {
             return 0L;
         }
         long millis = duracion.toMillis();
-        // (a + b - 1) / b en aritmética entera = ceil(a/b) cuando a > 0
+        // (a + b - 1) / b en aritmetica entera = ceil(a/b) cuando a > 0
         return (millis + MILLIS_POR_HORA - 1) / MILLIS_POR_HORA;
     }
 }

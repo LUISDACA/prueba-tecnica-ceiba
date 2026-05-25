@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 /**
  * Tests unitarios del {@link AlquilerService}.
  *
- * <p>Usa un {@link Clock#fixed} para controlar el tiempo y verificar cálculos
+ * <p>Usa un {@link Clock#fixed} para controlar el tiempo y verificar calculos
  * deterministas. Los repositorios son mocks (Mockito).</p>
  */
 @DisplayName("AlquilerService")
@@ -46,7 +46,7 @@ class AlquilerServiceTest {
     void setUp() {
         alquilerRepository = mock(AlquilerRepository.class);
         bicicletaRepository = mock(BicicletaRepository.class);
-        tarifaCalculator = new TarifaCalculator(); // calculador real, para integrar con la lógica monetaria
+        tarifaCalculator = new TarifaCalculator(); // calculador real, para integrar con la logica monetaria
         clockInicial = Clock.fixed(Instant.parse("2026-05-22T10:00:00Z"), ZoneId.of("UTC"));
         service = new AlquilerService(alquilerRepository, bicicletaRepository, tarifaCalculator, clockInicial);
     }
@@ -58,10 +58,10 @@ class AlquilerServiceTest {
         when(bicicletaRepository.findByCodigo("BIC-001")).thenReturn(Optional.of(bici));
         when(alquilerRepository.save(any(Alquiler.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Alquiler resultado = service.iniciar("BIC-001", "Juan Pérez", 2);
+        Alquiler resultado = service.iniciar("BIC-001", "Juan Perez", 2);
 
         assertThat(bici.getEstado()).isEqualTo(EstadoBicicleta.ALQUILADA);
-        assertThat(resultado.getNombreCliente()).isEqualTo("Juan Pérez");
+        assertThat(resultado.getNombreCliente()).isEqualTo("Juan Perez");
         assertThat(resultado.getDuracionEstimadaHoras()).isEqualTo(2);
         verify(alquilerRepository).save(any(Alquiler.class));
     }
@@ -69,7 +69,7 @@ class AlquilerServiceTest {
     @Test
     @DisplayName("RN-04: iniciar con bici EN_MANTENIMIENTO lanza BicicletaNoDisponibleException")
     void iniciarConBiciNoDisponible() {
-        Bicicleta bici = new Bicicleta("BIC-004", TipoBicicleta.MONTAÑA, EstadoBicicleta.EN_MANTENIMIENTO);
+        Bicicleta bici = new Bicicleta("BIC-004", TipoBicicleta.MONTANA, EstadoBicicleta.EN_MANTENIMIENTO);
         when(bicicletaRepository.findByCodigo("BIC-004")).thenReturn(Optional.of(bici));
 
         assertThatThrownBy(() -> service.iniciar("BIC-004", "Cliente", 1))
@@ -81,7 +81,7 @@ class AlquilerServiceTest {
     }
 
     @Test
-    @DisplayName("Iniciar con código inexistente lanza BicicletaNoEncontradaException")
+    @DisplayName("Iniciar con codigo inexistente lanza BicicletaNoEncontradaException")
     void iniciarConBiciInexistente() {
         when(bicicletaRepository.findByCodigo("BIC-999")).thenReturn(Optional.empty());
 
@@ -93,7 +93,7 @@ class AlquilerServiceTest {
     @Test
     @DisplayName("RF-03: finalizar calcula costo+multa y libera la bici")
     void finalizarAlquiler() {
-        Bicicleta bici = new Bicicleta("BIC-002", TipoBicicleta.MONTAÑA, EstadoBicicleta.DISPONIBLE);
+        Bicicleta bici = new Bicicleta("BIC-002", TipoBicicleta.MONTANA, EstadoBicicleta.DISPONIBLE);
         when(bicicletaRepository.findByCodigo("BIC-002")).thenReturn(Optional.of(bici));
         when(alquilerRepository.save(any(Alquiler.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -135,12 +135,12 @@ class AlquilerServiceTest {
         // simulo un id ya asignado
         when(alquilerRepository.findById(any())).thenReturn(Optional.of(alquiler));
 
-        // Primera finalización: ok
+        // Primera finalizacion: ok
         Clock relojFinal = Clock.fixed(Instant.parse("2026-05-22T11:00:00Z"), ZoneId.of("UTC"));
         service = new AlquilerService(alquilerRepository, bicicletaRepository, tarifaCalculator, relojFinal);
         service.finalizar(alquiler.getId());
 
-        // Segunda finalización: debe fallar
+        // Segunda finalizacion: debe fallar
         assertThatThrownBy(() -> service.finalizar(alquiler.getId()))
                 .isInstanceOf(AlquilerYaFinalizadoException.class);
     }

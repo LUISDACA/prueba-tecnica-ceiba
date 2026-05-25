@@ -27,8 +27,8 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("API de Alquiler de Bicicletas Urbanas")
-                        .description("Prueba técnica — Practicante Java. Gestión de alquileres, "
-                                + "control de disponibilidad y cálculo de costos y multas.")
+                        .description("Prueba tecnica — Practicante Java. Gestion de alquileres, "
+                                + "control de disponibilidad y calculo de costos y multas.")
                         .version("v1")
                         .contact(new Contact()
                                 .name("Luis Miguel David")

@@ -57,7 +57,7 @@ public class BicicletaController {
 
     /**
      * RF-04: consultar bicicletas disponibles, opcionalmente filtradas por tipo.
-     * <p>Si {@code tipo} no se envía, devuelve todas las disponibles.</p>
+     * <p>Si {@code tipo} no se envia, devuelve todas las disponibles.</p>
      */
     @GetMapping("/disponibles")
     public List<BicicletaResponse> listarDisponibles(@RequestParam(required = false) TipoBicicleta tipo) {
@@ -71,7 +71,7 @@ public class BicicletaController {
         return BicicletaMapper.toResponse(bicicletaService.buscarPorCodigo(codigo));
     }
 
-    /** RF-05: historial de alquileres de una bicicleta, más reciente primero. */
+    /** RF-05: historial de alquileres de una bicicleta, mas reciente primero. */
     @GetMapping("/{codigo}/historial")
     public List<AlquilerResponse> historial(@PathVariable String codigo) {
         List<Alquiler> historial = alquilerService.historialDeBicicleta(codigo);

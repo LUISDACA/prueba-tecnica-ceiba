@@ -14,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Tests unitarios del {@link TarifaCalculator}.
  *
- * <p>Cubre los casos del enunciado y casos límite del redondeo. Es el componente
- * más crítico del sistema (toda la lógica monetaria), por eso recibe atención
+ * <p>Cubre los casos del enunciado y casos limite del redondeo. Es el componente
+ * mas critico del sistema (toda la logica monetaria), por eso recibe atencion
  * exhaustiva.</p>
  */
 @DisplayName("TarifaCalculator")
@@ -55,7 +55,7 @@ class TarifaCalculatorTest {
         }
 
         @Test
-        @DisplayName("500 ms (fracción de segundo): cobra 1 hora")
+        @DisplayName("500 ms (fraccion de segundo): cobra 1 hora")
         void fraccionDeSegundo() {
             var resultado = calculator.calcular(TipoBicicleta.URBANA, INICIO,
                     INICIO.plusNanos(500_000_000L), 1);
@@ -67,8 +67,8 @@ class TarifaCalculatorTest {
         @DisplayName("Multiplica por la tarifa del tipo correcto")
         void usaTarifaSegunTipo() {
             var urbana = calculator.calcular(TipoBicicleta.URBANA, INICIO, INICIO.plusHours(1), 1);
-            var montana = calculator.calcular(TipoBicicleta.MONTAÑA, INICIO, INICIO.plusHours(1), 1);
-            var electrica = calculator.calcular(TipoBicicleta.ELÉCTRICA, INICIO, INICIO.plusHours(1), 1);
+            var montana = calculator.calcular(TipoBicicleta.MONTANA, INICIO, INICIO.plusHours(1), 1);
+            var electrica = calculator.calcular(TipoBicicleta.ELECTRICA, INICIO, INICIO.plusHours(1), 1);
 
             assertThat(urbana.costoBase()).isEqualByComparingTo("3500.00");
             assertThat(montana.costoBase()).isEqualByComparingTo("5000.00");
@@ -77,11 +77,11 @@ class TarifaCalculatorTest {
     }
 
     @Nested
-    @DisplayName("RN-03: multa por devolución tardía")
+    @DisplayName("RN-03: multa por devolucion tardia")
     class MultaPorRetraso {
 
         @Test
-        @DisplayName("Devolución a tiempo: sin multa")
+        @DisplayName("Devolucion a tiempo: sin multa")
         void devolucionATiempo() {
             var resultado = calculator.calcular(TipoBicicleta.URBANA, INICIO, INICIO.plusHours(2), 2);
             assertThat(resultado.horasRetraso()).isZero();
@@ -89,7 +89,7 @@ class TarifaCalculatorTest {
         }
 
         @Test
-        @DisplayName("Devolución antes de tiempo: sin multa, pero se cobra tiempo real")
+        @DisplayName("Devolucion antes de tiempo: sin multa, pero se cobra tiempo real")
         void devolucionAntesDeTiempo() {
             var resultado = calculator.calcular(TipoBicicleta.URBANA, INICIO, INICIO.plusHours(1), 3);
             assertThat(resultado.horasRetraso()).isZero();
@@ -98,10 +98,10 @@ class TarifaCalculatorTest {
         }
 
         @Test
-        @DisplayName("Ejemplo del enunciado: MONTAÑA 2h estimadas, 3h20min reales -> total $25.000")
+        @DisplayName("Ejemplo del enunciado: MONTANA 2h estimadas, 3h20min reales -> total $25.000")
         void ejemploEnunciado() {
             var resultado = calculator.calcular(
-                    TipoBicicleta.MONTAÑA,
+                    TipoBicicleta.MONTANA,
                     INICIO,
                     INICIO.plusHours(3).plusMinutes(20),
                     2);
@@ -114,7 +114,7 @@ class TarifaCalculatorTest {
         }
 
         @Test
-        @DisplayName("Retraso de 1 segundo: cobra mínimo 1 hora de multa")
+        @DisplayName("Retraso de 1 segundo: cobra minimo 1 hora de multa")
         void retrasoMinimoFacturable() {
             var resultado = calculator.calcular(
                     TipoBicicleta.URBANA,
@@ -143,7 +143,7 @@ class TarifaCalculatorTest {
     }
 
     @Nested
-    @DisplayName("Validación de argumentos")
+    @DisplayName("Validacion de argumentos")
     class Argumentos {
 
         @Test
@@ -171,7 +171,7 @@ class TarifaCalculatorTest {
         @DisplayName("costoTotal siempre = costoBase + multa")
         void totalEsSumaDeComponentes() {
             var resultado = calculator.calcular(
-                    TipoBicicleta.ELÉCTRICA,
+                    TipoBicicleta.ELECTRICA,
                     INICIO,
                     INICIO.plusHours(5).plusMinutes(45),
                     3);

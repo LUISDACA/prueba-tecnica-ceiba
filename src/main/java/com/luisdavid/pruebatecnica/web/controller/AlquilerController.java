@@ -21,9 +21,9 @@ import java.net.URI;
 /**
  * Endpoints REST para alquileres (RF-02, RF-03).
  *
- * <p>Se usa {@code PATCH} para finalizar porque es una actualización parcial del
- * recurso existente, no la creación de uno nuevo. Evita el anti-patrón
- * RPC-sobre-REST que sería {@code POST /alquileres/{id}/finalizar}.</p>
+ * <p>Se usa {@code PATCH} para finalizar porque es una actualizacion parcial del
+ * recurso existente, no la creacion de uno nuevo. Evita el anti-patron
+ * RPC-sobre-REST que seria {@code POST /alquileres/{id}/finalizar}.</p>
  */
 @RestController
 @RequestMapping("/api/v1/alquileres")

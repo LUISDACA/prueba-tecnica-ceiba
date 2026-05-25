@@ -19,8 +19,8 @@ import java.util.List;
  * Orquesta los flujos de alquiler (RF-02, RF-03, RF-05).
  *
  * <p>El {@link Clock} es inyectado para que los tests puedan fijar el tiempo
- * (Clock.fixed) y verificar costos/multas de forma determinista. En producción
- * se registra un Clock.systemDefaultZone() vía configuración.</p>
+ * (Clock.fixed) y verificar costos/multas de forma determinista. En produccion
+ * se registra un Clock.systemDefaultZone() via configuracion.</p>
  */
 @Service
 @Transactional
@@ -43,10 +43,10 @@ public class AlquilerService {
 
     /**
      * Inicia un alquiler (RF-02). La hora de inicio la fija el servidor
-     * (supuesto documentado en README: evita manipulación por parte del cliente).
+     * (supuesto documentado en README: evita manipulacion por parte del cliente).
      *
-     * @throws BicicletaNoEncontradaException si el código no existe.
-     * @throws BicicletaNoDisponibleException si la bici no está DISPONIBLE (RN-04).
+     * @throws BicicletaNoEncontradaException si el codigo no existe.
+     * @throws BicicletaNoDisponibleException si la bici no esta DISPONIBLE (RN-04).
      */
     public Alquiler iniciar(String codigoBicicleta, String nombreCliente, int duracionEstimadaHoras) {
         Bicicleta bicicleta = bicicletaRepository.findByCodigo(codigoBicicleta)

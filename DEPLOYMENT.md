@@ -1,17 +1,17 @@
 # Despliegue en Azure Container Apps
 
-La app está desplegada en **Azure Container Apps** y disponible en:
+La app esta desplegada en **Azure Container Apps** y disponible en:
 
 > **https://prueba-tecnica-ceiba.graydune-89367257.centralus.azurecontainerapps.io**
 >
 > Swagger UI: `/swagger-ui/index.html`
 >
-> Endpoints `/api/**` requieren el header `X-API-KEY` (la clave se configuró
+> Endpoints `/api/**` requieren el header `X-API-KEY` (la clave se configuro
 > como secreto en el Container App, no se publica en este repo).
 
 ---
 
-## Cómo funciona el flujo
+## Como funciona el flujo
 
 ```
 git push origin main
@@ -23,15 +23,15 @@ GitHub Actions (.github/workflows/azure-deploy.yml)
        └── Push a GHCR (ghcr.io/luisdaca/prueba-tecnica-ceiba:latest)
        │
        ▼
-[manual]  .\deploy.ps1   (desde mi máquina local)
+[manual]  .\deploy.ps1   (desde mi maquina local)
        │
        └── az containerapp update --image ...
              │
              ▼
-Azure Container Apps actualiza la revisión y enruta el tráfico
+Azure Container Apps actualiza la revision y enruta el trafico
 ```
 
-### Por qué el último paso es manual
+### Por que el ultimo paso es manual
 
 La cuenta `@campusucc.edu.co` (Azure for Students en el tenant de mi
 universidad) **no tiene permisos para registrar aplicaciones en Microsoft
@@ -39,13 +39,13 @@ Entra ID**, lo que impide crear Service Principals para autenticar GitHub
 Actions contra Azure por OIDC.
 
 Si en un futuro el admin del tenant me habilita ese permiso, el workflow se
-puede extender en pocas líneas con `azure/login@v2` + `azure/container-apps-deploy-action@v2`
-y el deploy queda 100% automático.
+puede extender en pocas lineas con `azure/login@v2` + `azure/container-apps-deploy-action@v2`
+y el deploy queda 100% automatico.
 
-Como compensación, dejé un script `deploy.ps1` que ejecuta el update con un
+Como compensacion, deje un script `deploy.ps1` que ejecuta el update con un
 solo comando local — el flujo termina siendo:
 
-1. `git push` → GitHub Actions construye y publica la imagen automáticamente.
+1. `git push` → GitHub Actions construye y publica la imagen automaticamente.
 2. `.\deploy.ps1` → Azure usa la nueva imagen.
 
 ---
@@ -54,20 +54,20 @@ solo comando local — el flujo termina siendo:
 
 | Recurso | Nombre | Notas |
 |---|---|---|
-| Resource Group | `rg-prueba-tecnica` | Región: Central US (única permitida por Azure for Students en mi caso) |
-| Container Apps Environment | `env-prueba-tecnica` | El "namespace" lógico donde vive la app |
-| Container App | `prueba-tecnica-ceiba` | 0–2 réplicas, 0.5 vCPU, 1 GiB de memoria |
+| Resource Group | `rg-prueba-tecnica` | Region: Central US (unica permitida por Azure for Students en mi caso) |
+| Container Apps Environment | `env-prueba-tecnica` | El "namespace" logico donde vive la app |
+| Container App | `prueba-tecnica-ceiba` | 0–2 replicas, 0.5 vCPU, 1 GiB de memoria |
 | Secret (en el Container App) | `api-key` | Inyectado al contenedor como variable de entorno `API_KEY` |
 
-### Por qué Container Apps en lugar de App Service
+### Por que Container Apps en lugar de App Service
 
 - Free tier real (180.000 vCPU-segundos/mes gratis).
-- Escalado a cero automático: si nadie usa la app por minutos, no consume.
-- Más moderno (corre sobre Kubernetes managed por Microsoft).
+- Escalado a cero automatico: si nadie usa la app por minutos, no consume.
+- Mas moderno (corre sobre Kubernetes managed por Microsoft).
 
 ---
 
-## Comandos que usé para crear los recursos
+## Comandos que use para crear los recursos
 
 ```bash
 # 1. Login
@@ -116,31 +116,31 @@ az containerapp update \
 
 ---
 
-## Re-desplegar tras un cambio en el código
+## Re-desplegar tras un cambio en el codigo
 
 ```powershell
 # 1. Hacer el cambio, commit y push
 git add .
-git commit -m "<descripción del cambio>"
+git commit -m "<descripcion del cambio>"
 git push
 
 # 2. Esperar a que el workflow termine (verlo en github.com/.../actions)
 #    Cuando aparezca "Imagen publicada en ghcr.io/...:latest" la imagen ya
-#    está en el registry.
+#    esta en el registry.
 
 # 3. Actualizar el Container App con la nueva imagen
 .\deploy.ps1
 ```
 
-El script `deploy.ps1` espera a que la nueva revisión esté `Running` y
-imprime la URL pública al final.
+El script `deploy.ps1` espera a que la nueva revision este `Running` y
+imprime la URL publica al final.
 
 ---
 
-## Operaciones útiles
+## Operaciones utiles
 
 ```bash
-# URL pública
+# URL publica
 az containerapp show --name prueba-tecnica-ceiba --resource-group rg-prueba-tecnica \
     --query "properties.configuration.ingress.fqdn" -o tsv
 

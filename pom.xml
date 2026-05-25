@@ -74,8 +74,8 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- SpringDoc OpenAPI: genera Swagger UI automáticamente en /swagger-ui.html.
-		     Facilita la prueba manual de la API y sirve como documentación viva.
+		<!-- SpringDoc OpenAPI: genera Swagger UI automaticamente en /swagger-ui.html.
+		     Facilita la prueba manual de la API y sirve como documentacion viva.
 		     Version 2.8.0+ es compatible con Spring Boot 3.5.x. -->
 		<dependency>
 			<groupId>org.springdoc</groupId>

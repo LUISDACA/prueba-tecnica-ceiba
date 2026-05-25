@@ -16,16 +16,16 @@ import java.util.List;
 /**
  * Filtro que autentica peticiones mediante una API Key enviada en un header HTTP.
  *
- * <p>Si la ruta requiere protección y el header está ausente o no coincide con la
+ * <p>Si la ruta requiere proteccion y el header esta ausente o no coincide con la
  * clave configurada, devuelve HTTP 401 con un cuerpo JSON descriptivo.</p>
  *
  * <p>La clave se lee de {@code app.security.api-key} (sobreescribible con la
  * variable de entorno {@code API_KEY}). El nombre del header es configurable
  * mediante {@code app.security.api-key-header}.</p>
  *
- * <p>No se anota con {@code @Component} — se instancia explícitamente desde
- * {@link SecurityConfig} para evitar que Spring Boot lo registre también
- * como filtro servlet (duplicación) y para mantener su scope dentro de la
+ * <p>No se anota con {@code @Component} — se instancia explicitamente desde
+ * {@link SecurityConfig} para evitar que Spring Boot lo registre tambien
+ * como filtro servlet (duplicacion) y para mantener su scope dentro de la
  * cadena de Spring Security.</p>
  */
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
@@ -50,7 +50,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write("""
                 {
                   "type": "about:blank",
-                  "title": "API Key inválida o ausente",
+                  "title": "API Key invalida o ausente",
                   "status": 401,
                   "detail": "Debe enviar un header '%s' con la API Key configurada."
                 }
@@ -58,14 +58,14 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Autenticación mínima: la API Key reemplaza a un usuario/rol.
+        // Autenticacion minima: la API Key reemplaza a un usuario/rol.
         var auth = new ApiKeyAuthenticationToken(apiKey, List.of());
         auth.setAuthenticated(true);
         SecurityContextHolder.getContext().setAuthentication(auth);
         chain.doFilter(request, response);
     }
 
-    /** Token simple sin authorities para representar la autenticación por API Key. */
+    /** Token simple sin authorities para representar la autenticacion por API Key. */
     private static class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
         private final String apiKey;
 

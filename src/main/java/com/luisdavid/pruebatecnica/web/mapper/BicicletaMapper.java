@@ -4,9 +4,9 @@ import com.luisdavid.pruebatecnica.domain.Bicicleta;
 import com.luisdavid.pruebatecnica.web.dto.BicicletaResponse;
 
 /**
- * Convierte entidades {@link Bicicleta} a su DTO público.
+ * Convierte entidades {@link Bicicleta} a su DTO publico.
  *
- * <p>Mapeo manual y estático — para este tamaño no compensa traer MapStruct.</p>
+ * <p>Mapeo manual y estatico — para este tamano no compensa traer MapStruct.</p>
  */
 public final class BicicletaMapper {
 

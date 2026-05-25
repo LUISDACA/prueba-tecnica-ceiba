@@ -45,18 +45,18 @@ class BicicletaServiceTest {
     }
 
     @Test
-    @DisplayName("crear con estado explícito respeta el estado provisto (para seed)")
+    @DisplayName("crear con estado explicito respeta el estado provisto (para seed)")
     void crearConEstadoExplicito() {
         when(repository.existsByCodigo("BIC-004")).thenReturn(false);
         when(repository.save(any(Bicicleta.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Bicicleta b = service.crear("BIC-004", TipoBicicleta.MONTAÑA, EstadoBicicleta.EN_MANTENIMIENTO);
+        Bicicleta b = service.crear("BIC-004", TipoBicicleta.MONTANA, EstadoBicicleta.EN_MANTENIMIENTO);
 
         assertThat(b.getEstado()).isEqualTo(EstadoBicicleta.EN_MANTENIMIENTO);
     }
 
     @Test
-    @DisplayName("crear con código duplicado lanza CodigoBicicletaDuplicadoException")
+    @DisplayName("crear con codigo duplicado lanza CodigoBicicletaDuplicadoException")
     void crearConCodigoDuplicado() {
         when(repository.existsByCodigo("BIC-001")).thenReturn(true);
 

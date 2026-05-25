@@ -12,11 +12,11 @@ import org.springframework.stereotype.Component;
 /**
  * Carga los datos de referencia del enunciado (BIC-001 a BIC-005) al arrancar.
  *
- * <p>Excluido en perfil {@code test} para que los tests partan de una BD vacía
+ * <p>Excluido en perfil {@code test} para que los tests partan de una BD vacia
  * y puedan controlar su propio estado inicial.</p>
  *
- * <p>Idempotente: cada inserción se intenta y se ignora silenciosamente si la
- * bicicleta ya existe — útil ante reinicios en caliente con DevTools.</p>
+ * <p>Idempotente: cada insercion se intenta y se ignora silenciosamente si la
+ * bicicleta ya existe — util ante reinicios en caliente con DevTools.</p>
  */
 @Component
 @Profile("!test")
@@ -34,9 +34,9 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         log.info("Cargando datos de referencia...");
         seed("BIC-001", TipoBicicleta.URBANA, EstadoBicicleta.DISPONIBLE);
-        seed("BIC-002", TipoBicicleta.MONTAÑA, EstadoBicicleta.DISPONIBLE);
-        seed("BIC-003", TipoBicicleta.ELÉCTRICA, EstadoBicicleta.DISPONIBLE);
-        seed("BIC-004", TipoBicicleta.MONTAÑA, EstadoBicicleta.EN_MANTENIMIENTO);
+        seed("BIC-002", TipoBicicleta.MONTANA, EstadoBicicleta.DISPONIBLE);
+        seed("BIC-003", TipoBicicleta.ELECTRICA, EstadoBicicleta.DISPONIBLE);
+        seed("BIC-004", TipoBicicleta.MONTANA, EstadoBicicleta.EN_MANTENIMIENTO);
         seed("BIC-005", TipoBicicleta.URBANA, EstadoBicicleta.DISPONIBLE);
         log.info("Datos de referencia cargados.");
     }
@@ -45,7 +45,7 @@ public class DataSeeder implements CommandLineRunner {
         try {
             bicicletaService.crear(codigo, tipo, estado);
         } catch (RuntimeException ex) {
-            log.debug("Seed: {} ya existía o no se pudo crear: {}", codigo, ex.getMessage());
+            log.debug("Seed: {} ya existia o no se pudo crear: {}", codigo, ex.getMessage());
         }
     }
 }

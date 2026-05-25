@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
  *       {@link #multa} y {@link #costoTotal}.</li>
  * </ol>
  *
- * <p>Decisión: en lugar de un {@code enum EstadoAlquiler}, se infiere por
+ * <p>Decision: en lugar de un {@code enum EstadoAlquiler}, se infiere por
  * {@code horaFin != null}. Simplifica el modelo y evita estados inconsistentes
  * (una hora fin sin estado FINALIZADO o viceversa).</p>
  *

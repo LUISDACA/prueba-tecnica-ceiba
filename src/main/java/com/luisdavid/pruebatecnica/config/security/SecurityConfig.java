@@ -11,7 +11,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
- * Configuración de Spring Security.
+ * Configuracion de Spring Security.
  *
  * <p>La API es <strong>stateless</strong> (sin sesiones) y autentica las
  * peticiones a {@code /api/**} con un filtro de API Key (ver
@@ -19,7 +19,7 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
  *
  * <p>Rutas abiertas:</p>
  * <ul>
- *   <li>{@code /swagger-ui/**}, {@code /v3/api-docs/**} — documentación de la API.</li>
+ *   <li>{@code /swagger-ui/**}, {@code /v3/api-docs/**} — documentacion de la API.</li>
  *   <li>{@code /h2-console/**} — consola H2 en desarrollo.</li>
  *   <li>{@code /actuator/health} — health check.</li>
  * </ul>

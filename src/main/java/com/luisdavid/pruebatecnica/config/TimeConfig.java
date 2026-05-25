@@ -6,10 +6,10 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Clock;
 
 /**
- * Expone el reloj del sistema como bean para permitir su inyección.
+ * Expone el reloj del sistema como bean para permitir su inyeccion.
  *
  * <p>En tests se sobreescribe con {@code Clock.fixed(...)} para obtener
- * resultados deterministas en los cálculos temporales.</p>
+ * resultados deterministas en los calculos temporales.</p>
  */
 @Configuration
 public class TimeConfig {

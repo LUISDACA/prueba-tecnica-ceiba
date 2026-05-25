@@ -8,18 +8,18 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Petición para registrar una bicicleta (RF-01).
+ * Peticion para registrar una bicicleta (RF-01).
  *
- * <p>El campo {@code estado} es opcional — si no se envía, la bici se crea
+ * <p>El campo {@code estado} es opcional — si no se envia, la bici se crea
  * en {@link EstadoBicicleta#DISPONIBLE}. Esto permite el seed de BIC-004
  * EN_MANTENIMIENTO sin obligar a especificarlo en cada alta normal.</p>
  */
 public record CrearBicicletaRequest(
 
-        @NotBlank(message = "El código es obligatorio")
-        @Size(max = 20, message = "El código no puede exceder 20 caracteres")
+        @NotBlank(message = "El codigo es obligatorio")
+        @Size(max = 20, message = "El codigo no puede exceder 20 caracteres")
         @Pattern(regexp = "^[A-Z0-9-]+$",
-                message = "El código solo admite letras mayúsculas, dígitos y guiones")
+                message = "El codigo solo admite letras mayusculas, digitos y guiones")
         String codigo,
 
         @NotNull(message = "El tipo es obligatorio")

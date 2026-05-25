@@ -29,19 +29,19 @@ class RedondeoHorasTest {
 
     @ParameterizedTest(name = "{0}ms -> {1}h")
     @CsvSource({
-            "1,           1",     // fracción de segundo cuenta como 1h
+            "1,           1",     // fraccion de segundo cuenta como 1h
             "500,         1",
             "3599999,     1",     // ~1h menos 1ms
             "3600000,     1",     // 1h exacta
             "3600001,     2"
     })
-    @DisplayName("fracciones de segundo se redondean a la próxima hora")
+    @DisplayName("fracciones de segundo se redondean a la proxima hora")
     void fraccionesDeSegundo(long millis, long horasEsperadas) {
         assertThat(RedondeoHoras.alAlza(Duration.ofMillis(millis))).isEqualTo(horasEsperadas);
     }
 
     @org.junit.jupiter.api.Test
-    @DisplayName("duración negativa devuelve 0")
+    @DisplayName("duracion negativa devuelve 0")
     void negativa() {
         assertThat(RedondeoHoras.alAlza(Duration.ofSeconds(-5))).isZero();
     }

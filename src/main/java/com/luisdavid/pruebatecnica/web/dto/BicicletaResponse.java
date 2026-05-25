@@ -6,9 +6,9 @@ import com.luisdavid.pruebatecnica.domain.TipoBicicleta;
 import java.math.BigDecimal;
 
 /**
- * Representación pública de una bicicleta.
+ * Representacion publica de una bicicleta.
  *
- * <p>Expone también la tarifa derivada del tipo como cortesía al cliente
+ * <p>Expone tambien la tarifa derivada del tipo como cortesia al cliente
  * — evita que el consumidor de la API tenga que conocer las tarifas.</p>
  */
 public record BicicletaResponse(

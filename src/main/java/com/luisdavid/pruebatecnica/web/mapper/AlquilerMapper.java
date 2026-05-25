@@ -7,10 +7,10 @@ import com.luisdavid.pruebatecnica.web.dto.AlquilerResponse;
 import java.time.Duration;
 
 /**
- * Convierte entidades {@link Alquiler} a su DTO público.
+ * Convierte entidades {@link Alquiler} a su DTO publico.
  *
- * <p>Calcula la duración real (horas redondeadas al alza) solo cuando el
- * alquiler ya finalizó — antes de eso, los campos de cierre quedan nulos.</p>
+ * <p>Calcula la duracion real (horas redondeadas al alza) solo cuando el
+ * alquiler ya finalizo — antes de eso, los campos de cierre quedan nulos.</p>
  */
 public final class AlquilerMapper {
 

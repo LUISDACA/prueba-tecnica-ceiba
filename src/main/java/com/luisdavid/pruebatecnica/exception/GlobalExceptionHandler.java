@@ -19,8 +19,8 @@ import java.util.Map;
  * Manejador global de excepciones para toda la capa REST.
  *
  * <p>Convierte excepciones de dominio en respuestas HTTP estandarizadas
- * usando {@link ProblemDetail} (RFC 7807 — formato estándar de errores HTTP).
- * Centralizar el mapeo aquí evita try/catch repetitivos en cada controller (DRY)
+ * usando {@link ProblemDetail} (RFC 7807 — formato estandar de errores HTTP).
+ * Centralizar el mapeo aqui evita try/catch repetitivos en cada controller (DRY)
  * y desacopla las excepciones de negocio del transporte HTTP.</p>
  */
 @RestControllerAdvice
@@ -48,27 +48,27 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CodigoBicicletaDuplicadoException.class)
     public ProblemDetail handleDuplicado(CodigoBicicletaDuplicadoException ex) {
-        return build(HttpStatus.CONFLICT, "Código duplicado", ex.getMessage());
+        return build(HttpStatus.CONFLICT, "Codigo duplicado", ex.getMessage());
     }
 
     /**
-     * Falló el bloqueo optimista — dos transacciones intentaron modificar
-     * la misma bicicleta simultáneamente.
+     * Fallo el bloqueo optimista — dos transacciones intentaron modificar
+     * la misma bicicleta simultaneamente.
      */
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ProblemDetail handleOptimisticLock(OptimisticLockingFailureException ex) {
         return build(HttpStatus.CONFLICT, "Conflicto de concurrencia",
-                "La bicicleta fue modificada por otra operación. Intente nuevamente.");
+                "La bicicleta fue modificada por otra operacion. Intente nuevamente.");
     }
 
-    /** Validación de Bean Validation (anotaciones en records de request). */
+    /** Validacion de Bean Validation (anotaciones en records de request). */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errores = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(fe ->
                 errores.put(fe.getField(), fe.getDefaultMessage()));
-        ProblemDetail pd = build(HttpStatus.BAD_REQUEST, "Datos inválidos",
-                "Uno o más campos no superaron la validación");
+        ProblemDetail pd = build(HttpStatus.BAD_REQUEST, "Datos invalidos",
+                "Uno o mas campos no superaron la validacion");
         pd.setProperty("errores", errores);
         return pd;
     }
@@ -76,19 +76,19 @@ public class GlobalExceptionHandler {
     /** JSON malformado o con tipos incorrectos. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleMalformedJson(HttpMessageNotReadableException ex) {
-        return build(HttpStatus.BAD_REQUEST, "JSON inválido",
-                "El cuerpo de la petición no se pudo deserializar correctamente");
+        return build(HttpStatus.BAD_REQUEST, "JSON invalido",
+                "El cuerpo de la peticion no se pudo deserializar correctamente");
     }
 
-    /** Parámetro de tipo incorrecto en path o query (ej. enum no válido). */
+    /** Parametro de tipo incorrecto en path o query (ej. enum no valido). */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String msg = "El parámetro '" + ex.getName() + "' con valor '" + ex.getValue()
-                + "' no es válido";
-        return build(HttpStatus.BAD_REQUEST, "Parámetro inválido", msg);
+        String msg = "El parametro '" + ex.getName() + "' con valor '" + ex.getValue()
+                + "' no es valido";
+        return build(HttpStatus.BAD_REQUEST, "Parametro invalido", msg);
     }
 
-    /** Ruta inexistente. Devuelve 404 limpio en lugar de filtrar al handler genérico. */
+    /** Ruta inexistente. Devuelve 404 limpio en lugar de filtrar al handler generico. */
     @ExceptionHandler(NoResourceFoundException.class)
     public ProblemDetail handleNoResource(NoResourceFoundException ex) {
         return build(HttpStatus.NOT_FOUND, "Ruta no encontrada",
@@ -96,22 +96,22 @@ public class GlobalExceptionHandler {
                         + "Ver Swagger UI en /swagger-ui/index.html");
     }
 
-    /** Cualquier excepción de estado ilegal proveniente del dominio. */
+    /** Cualquier excepcion de estado ilegal proveniente del dominio. */
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleIllegalState(IllegalStateException ex) {
-        return build(HttpStatus.CONFLICT, "Estado inválido", ex.getMessage());
+        return build(HttpStatus.CONFLICT, "Estado invalido", ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
-        return build(HttpStatus.BAD_REQUEST, "Argumento inválido", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Argumento invalido", ex.getMessage());
     }
 
     /** Captura por defecto — evita filtrar stack traces internos. */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno",
-                "Ocurrió un error inesperado. Contacte al administrador.");
+                "Ocurrio un error inesperado. Contacte al administrador.");
     }
 
     private ProblemDetail build(HttpStatus status, String title, String detail) {

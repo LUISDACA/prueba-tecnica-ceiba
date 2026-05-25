@@ -6,13 +6,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Representación pública de un alquiler.
+ * Representacion publica de un alquiler.
  *
- * <p>Mientras está activo, los campos {@code horaFin}, {@code costoBase},
+ * <p>Mientras esta activo, los campos {@code horaFin}, {@code costoBase},
  * {@code multa} y {@code costoTotal} aparecen como {@code null} en el JSON.
  * Al finalizar, todos los campos se completan.</p>
  *
- * <p>{@code duracionRealHoras} solo se incluye cuando el alquiler ya finalizó —
+ * <p>{@code duracionRealHoras} solo se incluye cuando el alquiler ya finalizo —
  * son las horas reales redondeadas al alza usadas para el cobro (RN-02).</p>
  */
 public record AlquilerResponse(

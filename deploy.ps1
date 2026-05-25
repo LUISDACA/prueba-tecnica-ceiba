@@ -2,11 +2,11 @@
 # Script para actualizar la imagen del Azure Container App desde GHCR.
 # Uso:
 #   .\deploy.ps1                # usa la imagen :latest
-#   .\deploy.ps1 -Tag sha-abc   # usa una imagen tageada con SHA específico
+#   .\deploy.ps1 -Tag sha-abc   # usa una imagen tageada con SHA especifico
 #
 # Requisitos:
 #   - Azure CLI instalada y autenticada ('az login').
-#   - El workflow de GitHub Actions ya empujó la imagen a GHCR.
+#   - El workflow de GitHub Actions ya empujo la imagen a GHCR.
 # =============================================================================
 
 param(
@@ -28,7 +28,7 @@ az containerapp update `
     --only-show-errors `
     --output none
 
-Write-Host "Esperando a que la nueva revisión esté Running..." -ForegroundColor Cyan
+Write-Host "Esperando a que la nueva revision este Running..." -ForegroundColor Cyan
 $timeout = 180
 $elapsed = 0
 do {

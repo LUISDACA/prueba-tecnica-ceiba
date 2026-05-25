@@ -10,13 +10,13 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repositorio de bicicletas. Las consultas se derivan del nombre del método
- * (Spring Data) — sin SQL manual mientras la lógica sea trivial.
+ * Repositorio de bicicletas. Las consultas se derivan del nombre del metodo
+ * (Spring Data) — sin SQL manual mientras la logica sea trivial.
  */
 @Repository
 public interface BicicletaRepository extends JpaRepository<Bicicleta, Long> {
 
-    /** Búsqueda por identificador de negocio. Usado por casi todos los flujos. */
+    /** Busqueda por identificador de negocio. Usado por casi todos los flujos. */
     Optional<Bicicleta> findByCodigo(String codigo);
 
     boolean existsByCodigo(String codigo);

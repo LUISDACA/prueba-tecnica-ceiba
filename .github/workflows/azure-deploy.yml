@@ -1,13 +1,13 @@
 name: Build & push imagen a GHCR
 
 # Construye la imagen Docker y la sube a GitHub Container Registry (GHCR)
-# en cada push a main. El despliegue a Azure Container Apps se hace después
+# en cada push a main. El despliegue a Azure Container Apps se hace despues
 # corriendo el script ./deploy.ps1 desde local (ver DEPLOYMENT.md).
 #
-# Por qué no hacemos también el deploy a Azure desde aquí:
+# Por que no hacemos tambien el deploy a Azure desde aqui:
 # La cuenta de Azure for Students de la universidad no permite crear Service
 # Principals (necesarios para OIDC). Si en un futuro el admin del tenant
-# habilita ese permiso, el workflow se puede extender fácilmente con
+# habilita ese permiso, el workflow se puede extender facilmente con
 # 'azure/login@v2' + 'azure/container-apps-deploy-action@v2'.
 
 on:
